@@ -1,0 +1,80 @@
+version: "2.0.0"
+project:
+  name: "JARVIS"
+  full_name: "Just A Rather Very Intelligent System"
+  workspace: "F:/JARVIS2.0"
+  type: "persistent_cognitive_operating_system"
+  updated_at: "2026-09-14T20:41:00+05:30"
+
+status:
+  implementation: "not_started"
+  milestone: "pre_m0"
+  m0_audit: "not_run"
+  m1_kernel: "not_started"
+  m2_memory_os: "not_started"
+  m3_missions: "not_started"
+  m4_multimodal: "not_started"
+  m5_robotics: "not_started"
+
+authority:
+  architecture: "docs/MASTER_BUILD_SPEC.md"
+  decisions: "docs/DECISIONS.md"
+  glossary: "docs/GLOSSARY.md"
+  development_context: "DEVELOPMENT_CONTEXT.md"
+  instructions: "AGENTS.md"
+
+current_task:
+  status: "in_progress"
+  phase: "pre_m0_establishment"
+  objective: "establish_repository_context_and_prepare_for_m0"
+  next_step: "execute_formal_m0_machine_environment_audit"
+
+constraints:
+  architecture_freeze: true
+  no_automatic_installation: true
+  no_runtime_implementation_before_m0: true
+  enforce_substitution_seam: true
+  require_creator_authority: true
+  deterministic_kernel_authoritative: true
+
+truth_protocol:
+  levels:
+    - VISION
+    - PROPOSAL
+    - ACCEPTED_DESIGN
+    - IMPLEMENTED
+    - VERIFIED
+
+agents:
+  opencode:
+    platform: "OpenCode CLI"
+    persona: "Big Pickle"
+    role: "primary_implementation_engineer"
+    responsibilities:
+      - "Inspect repository and context"
+      - "Implement accepted designs in src/"
+      - "Write automated tests in tests/"
+      - "Preserve architecture invariants"
+    can_redefine_architecture: false
+
+  freebuff:
+    platform: "Freebuff / DeepSeek"
+    persona: "DeepSeek Reasoner"
+    role: "adversarial_architecture_and_research_reviewer"
+    responsibilities:
+      - "Stress-test proposed designs"
+      - "Identify failure modes and concurrency bottlenecks"
+      - "Propose invariant matrices and test scenarios"
+      - "Perform trade-off analysis on libraries/models"
+    can_redefine_architecture: false
+
+  antigravity:
+    platform: "Antigravity IDE"
+    persona: "Gemini"
+    role: "independent_engineering_and_quality_reviewer"
+    responsibilities:
+      - "Audit real file/system state against claims"
+      - "Verify security boundaries and provider substitution seams"
+      - "Validate test coverage and typing correctness"
+      - "Ensure documentation and context synchronization"
+    can_redefine_architecture: false
