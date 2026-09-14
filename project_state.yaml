@@ -4,13 +4,13 @@ project:
   full_name: "Just A Rather Very Intelligent System"
   workspace: "F:/JARVIS2.0"
   type: "persistent_cognitive_operating_system"
-  updated_at: "2026-09-14T20:41:00+05:30"
+  updated_at: "2026-09-14T20:47:30+05:30"
 
 status:
   implementation: "not_started"
-  milestone: "pre_m0"
-  m0_audit: "not_run"
-  m1_kernel: "not_started"
+  milestone: "m0_completed"
+  m0_audit: "completed_verdict_m1_buildable_after_setup"
+  m1_kernel: "ready_to_implement_upon_model_selection"
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -20,19 +20,20 @@ authority:
   architecture: "docs/MASTER_BUILD_SPEC.md"
   decisions: "docs/DECISIONS.md"
   glossary: "docs/GLOSSARY.md"
+  m0_audit: "docs/M0_AUDIT.md"
   development_context: "DEVELOPMENT_CONTEXT.md"
   instructions: "AGENTS.md"
 
 current_task:
-  status: "in_progress"
-  phase: "pre_m0_establishment"
-  objective: "establish_repository_context_and_prepare_for_m0"
-  next_step: "execute_formal_m0_machine_environment_audit"
+  status: "ready"
+  phase: "m0_to_m1_transition"
+  objective: "configure_model_backend_and_begin_m1_kernel_implementation"
+  next_step: "user_selects_model_provider_or_installs_ollama"
 
 constraints:
   architecture_freeze: true
   no_automatic_installation: true
-  no_runtime_implementation_before_m0: true
+  no_runtime_implementation_before_m0: false  # M0 is now completed
   enforce_substitution_seam: true
   require_creator_authority: true
   deterministic_kernel_authoritative: true
