@@ -50,6 +50,7 @@ Every claim, suggestion, or status assertion made by any AI system must map expl
 7. **Testing is mandatory**: Every implemented component must have corresponding unit/integration tests in `tests/`.
 8. **Preserve Git history**: Keep commits focused, clean, and well-described.
 9. **When uncertain, STOP**: If a specification is ambiguous or conflicting, stop and report the ambiguity. Never guess.
+10. **Do not rewrite history on `main` without explicit creator approval.** Re-running a merge to change its commit hash is a history rewrite.
 
 ---
 

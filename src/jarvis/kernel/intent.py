@@ -57,8 +57,14 @@ Design decisions (resolved ambiguities):
              | "object" | "null"
      - required: bool (default False)
      - enum: list (optional; value must be one of)
-   If schema is empty dict {}: args must also be empty.
+If schema is empty dict {}: args must also be empty.
    Extra keys in args not present in schema are rejected.
+
+9. Registry invariant: via the capability registry (§131.4 and the
+   registry module), registered contract args_schema values are guaranteed
+   non-empty (RegistryError on violation). The empty-schema skip in
+   validate_proposal is therefore a defensive fallback for defective
+   catalogs, not a supported configuration.
 """
 
 import datetime as _dt
@@ -175,6 +181,10 @@ class Manifest(BaseModel):
 
     manifest_sha256 is computed over canonical JSON of the full body
     (excluding manifest_sha256 itself). Frozen → immutable.
+
+    Non-goal: manifest_sha256 does NOT cover temporal fields
+    (created_at_utc). Cross-run identity / reproducibility over temporal
+    fields is out of scope (documented, not engineered).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
