@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
@@ -56,7 +57,10 @@ class CreatorIdentity:
     @classmethod
     def create(cls, keys_dir: Path | str | None = None) -> "CreatorIdentity":
         """Idempotent: returns the existing identity if one is on disk,
-        otherwise generates and persists a new one. Never overwrites."""
+        otherwise generates and persists a new one. Never overwrites.
+        If the key file exists but is corrupt, create() raises
+        AuthorityUnavailable rather than silently regenerating over
+        existing material (fail-closed invariant)."""
         key_path = cls._resolve_key_path(keys_dir)
         if key_path.exists():
             return cls.load(keys_dir)
@@ -74,7 +78,7 @@ class CreatorIdentity:
         try:
             seed = key_path.read_bytes()
             private_key = Ed25519PrivateKey.from_private_bytes(seed)
-        except (OSError, ValueError, TypeError) as exc:
+        except (OSError, ValueError, TypeError, UnsupportedAlgorithm) as exc:
             raise AuthorityUnavailable(
                 f"creator key at {key_path} is unreadable or corrupt: {exc}"
             ) from exc
