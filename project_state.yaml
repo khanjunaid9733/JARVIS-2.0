@@ -22,10 +22,11 @@ status:
   milestone: "m0_completed_m1_readiness_patched"
   m0_audit: "completed_verdict_m1_buildable_after_setup"
   m1_readiness_patch: "applied_freeze_commit_pending"
-  m1_kernel: "in_progress_creator_intent_done"
+  m1_kernel: "in_progress_creator_intent_registry_done"
   event_log: "implemented_merged_d5d5567"
   creator_identity: "implemented_merged_9b3955b"
   intent_abi: "implemented_merged_81ceb23"  # module 3 (intent ABI + static validation), merged into main
+  capability_registry: "implemented_awaiting_merge"  # module 4, in task/capability-registry worktree
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -59,8 +60,8 @@ nats:
     note: "deterministic half implemented (test_nat_01_proposal_with_ungranted_capability_is_rejected: ungranted capability -> ValidationFailure, no Manifest); zero-effects half needs the effects module (module 8)"
   nat_02:
     bind: "creator identity + capability registry authority events (constitution 5)"
-    status: "pending"
-    note: "bound to capability registry + ADR-007 signing scope (capability.provider_added)"
+    status: "implemented"
+    note: "test_nat_02_non_creator_add_rejected_registry_unchanged: forged capability.provider_added signed by non-anchor key halts projection (RegistryAuthorityError); registry stays exactly the seeded set"
   nat_03:
     bind: "event log -> minimal memory projection (constitution 20)"
     status: "interim"
@@ -76,9 +77,9 @@ nats:
 
 current_task:
   status: "ready"
-  phase: "m1_module_4"
-  objective: "implement_capability_registry_contract_catalog_impl_and_seed_providers"
-  next_step: "integrate_gate_verdict_and_freebuff_review_then_build_capability_registry"
+  phase: "m1_module_5"
+  objective: "implement_provider_adapter_interface"
+  next_step: "gate_review_module_4_then_build_provider_adapter"
 
 constraints:
   architecture_freeze: true
