@@ -18,11 +18,13 @@ spec:
       change: "M1 readiness patch applied: ADR-005..009 accepted; spec s134 (M1 cut list, milestone ladder mapping, NAT-01..05) merged; Python pinning window (>=3.12,<3.14) established"
 
 status:
-  implementation: "not_started"
+  implementation: "in_progress"
   milestone: "m0_completed_m1_readiness_patched"
   m0_audit: "completed_verdict_m1_buildable_after_setup"
   m1_readiness_patch: "applied_freeze_commit_pending"
-  m1_kernel: "blocked_on_model_backend_selection_only"
+  m1_kernel: "in_progress_event_log_done"
+  event_log: "implemented_merged_d5d5567"
+  creator_identity: "not_started"
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -48,6 +50,28 @@ gates:
       - "model backend configured; M0 rows re-verified -> final verdict M1_BUILDABLE_NOW"
       - "M1 cut list (spec s134.1) implemented: MUST tier complete; STRETCH (M1.1) optional"
       - "smoke test (spec s127.1) plus NAT-01..05 (spec s134.3) passing"
+
+nats:
+  nat_01:
+    bind: "capability registry + intent ABI (constitution 6/11)"
+    status: "pending"
+    note: "bound to capability/intent modules, not yet built"
+  nat_02:
+    bind: "creator identity + capability registry authority events (constitution 5)"
+    status: "pending"
+    note: "bound to capability registry + ADR-007 signing scope (capability.provider_added)"
+  nat_03:
+    bind: "event log -> minimal memory projection (constitution 20)"
+    status: "interim"
+    note: "interim proxy = event-stream digest; MUST be rewritten to digest projection state when the minimal memory projection lands (s134.1)"
+  nat_04:
+    bind: "event log (constitution 10)"
+    status: "implemented"
+    note: "replay() always verifies; tamper halts with EventIntegrityError"
+  nat_05:
+    bind: "deterministic FSM / done-gate (constitution 12)"
+    status: "pending"
+    note: "bound to mission lifecycle FSM module, not yet built"
 
 current_task:
   status: "blocked_on_creator_decision"

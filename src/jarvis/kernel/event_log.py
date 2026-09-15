@@ -330,38 +330,49 @@ class EventLog:
             prev_hash = row["event_sha256"]
         return True
 
-    def replay(self, since: int = 0, *, verify: bool = True) -> list[Event]:
-        """Deterministic replay in global order. Halts on integrity failure (NAT-04)."""
+    def replay(self, since: int = 0) -> list[Event]:
+        """Deterministic replay in global order. Always verifies; halts on
+        integrity failure (NAT-04). There is deliberately no unchecked caller
+        path in production."""
         sql, params = self._build_query(since, None, None, None)
         rows = self._conn.execute(sql, params).fetchall()
 
         prev_hash: str | None = None
-        if verify and (prev := self._conn.execute("SELECT event_sha256 FROM events WHERE seq <= ? ORDER BY seq DESC LIMIT 1", (since,)).fetchone()):
+        if prev := self._conn.execute("SELECT event_sha256 FROM events WHERE seq <= ? ORDER BY seq DESC LIMIT 1", (since,)).fetchone():
             prev_hash = prev["event_sha256"]
 
         for row in rows:
             payload = json.loads(row["payload_json"])
-            if verify:
-                if _sha256(_canonical_json(payload)) != row["payload_sha256"]:
-                    raise EventIntegrityError(
-                        f"payload hash mismatch at seq={row['seq']} (event_id={row['event_id']})"
-                    )
-                if row["prev_event_sha256"] != prev_hash:
-                    raise EventIntegrityError(
-                        f"chain hash mismatch at seq={row['seq']} (event_id={row['event_id']})"
-                    )
-                event = self._rows_to_events([row])[0]
-                if event.compute_event_sha256() != row["event_sha256"]:
-                    raise EventIntegrityError(
-                        f"event hash mismatch at seq={row['seq']} (event_id={row['event_id']})"
-                    )
-                prev_hash = row["event_sha256"]
+            if _sha256(_canonical_json(payload)) != row["payload_sha256"]:
+                raise EventIntegrityError(
+                    f"payload hash mismatch at seq={row['seq']} (event_id={row['event_id']})"
+                )
+            if row["prev_event_sha256"] != prev_hash:
+                raise EventIntegrityError(
+                    f"chain hash mismatch at seq={row['seq']} (event_id={row['event_id']})"
+                )
+            event = self._rows_to_events([row])[0]
+            if event.compute_event_sha256() != row["event_sha256"]:
+                raise EventIntegrityError(
+                    f"event hash mismatch at seq={row['seq']} (event_id={row['event_id']})"
+                )
+            prev_hash = row["event_sha256"]
+        return self._rows_to_events(rows)
+
+    def _read_all_events_unchecked(self, since: int = 0) -> list[Event]:
+        """Tests-only: read events without integrity checks. Production callers
+        must use replay() and always verify."""
+        sql, params = self._build_query(since, None, None, None)
+        rows = self._conn.execute(sql, params).fetchall()
         return self._rows_to_events(rows)
 
     def projection_digest(self) -> str:
-        """Byte-identical, deterministic digest over the replayed event stream (NAT-03)."""
+        """INTERIM NAT-03 proxy: byte-identical, deterministic digest over the
+        replayed event stream. MUST be replaced by a digest over projection
+        state once the minimal memory projection lands (spec §134.1 MUST list,
+        NAT-03 requires hashing the projection, not the raw event stream)."""
         h = hashlib.sha256()
-        for event in self.replay(verify=True):
+        for event in self.replay():
             record = {
                 "_event": event.chain_record(),
                 "payload": event.payload,

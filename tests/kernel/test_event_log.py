@@ -163,7 +163,13 @@ def test_verify_chain_true_after_appends(tmp_path, clock):
 
 
 def test_nat_03_replay_identical_log_twice_byte_identical(tmp_path, clock):
-    """NAT-03: replaying the identical event log twice yields byte-identical hashes."""
+    """NAT-03: replaying the identical event log twice yields byte-identical hashes.
+
+    INTERIM proxy: this digests the raw event stream via projection_digest().
+    When the minimal memory projection lands (spec §134.1), NAT-03 must be
+    rewritten to digest that projection's output. Do NOT re-mark NAT-03 done
+    without re-verifying against the projection.
+    """
     log = _make_log(tmp_path, clock)
     for i in range(10):
         log.append(_event(stream_id="memory", payload={"i": i}))
@@ -245,11 +251,30 @@ def test_nat_04_tampered_prev_hash_halts_replay(tmp_path, clock):
     log.close()
 
 
-def test_replay_without_verify_skips_checks(tmp_path, clock):
+def test_replay_always_verifies_and_halts_on_tamper(tmp_path, clock):
     log = _make_log(tmp_path, clock)
     for i in range(5):
         log.append(_event(payload={"i": i}))
-    events = log.replay(verify=False)
+
+    tbl = sqlite3.connect(str(tmp_path / "log.db"))
+    tbl.execute("DROP TRIGGER IF EXISTS events_no_update")
+    tbl.execute(
+        "UPDATE events SET payload_json = ? WHERE seq = 3",
+        (json.dumps({"i": 999}),),
+    )
+    tbl.commit()
+    tbl.close()
+
+    with pytest.raises(EventIntegrityError):
+        log.replay()
+    log.close()
+
+
+def test_read_all_events_unchecked_is_tests_only(tmp_path, clock):
+    log = _make_log(tmp_path, clock)
+    for i in range(5):
+        log.append(_event(payload={"i": i}))
+    events = log._read_all_events_unchecked()
     assert [e.stream_seq for e in events] == [1, 2, 3, 4, 5]
     log.close()
 
