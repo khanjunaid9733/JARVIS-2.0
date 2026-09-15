@@ -26,7 +26,8 @@ status:
   event_log: "implemented_merged_d5d5567"
   creator_identity: "implemented_merged_9b3955b"
   intent_abi: "implemented_merged_81ceb23"  # module 3 (intent ABI + static validation), merged into main
-  capability_registry: "implemented_awaiting_merge"  # module 4, in task/capability-registry worktree
+  capability_registry: "implemented_merged_4b90124"  # first module-4 interpretation: event-sourced ContractCatalog impl (now superseded by registry)
+  registry: "implemented_merged_03b8f3c"  # authoritative module-4 spec: in-memory CapabilityRegistry + ProviderAdapter Protocol (interface), NAT-02 deterministic half
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -59,9 +60,9 @@ nats:
     status: "partial"
     note: "deterministic half implemented (test_nat_01_proposal_with_ungranted_capability_is_rejected: ungranted capability -> ValidationFailure, no Manifest); zero-effects half needs the effects module (module 8)"
   nat_02:
-    bind: "creator identity + capability registry authority events (constitution 5)"
-    status: "implemented"
-    note: "test_nat_02_non_creator_add_rejected_registry_unchanged: forged capability.provider_added signed by non-anchor key halts projection (RegistryAuthorityError); registry stays exactly the seeded set"
+    bind: "creator identity + capability registry authority (constitution 5)"
+    status: "partial"
+    note: "deterministic half implemented (test_nat_02_non_creator_registration_is_rejected: non-creator principal_id -> AuthorityUnavailable, registry unchanged); signature-verification half of authority deferred until a key-based authority module lands (documented M1 trust model: principal_id equality)"
   nat_03:
     bind: "event log -> minimal memory projection (constitution 20)"
     status: "interim"
