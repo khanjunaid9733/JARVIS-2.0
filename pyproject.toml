@@ -3,3 +3,10 @@ name = "jarvis"
 version = "0.0.0"
 description = "JARVIS 2.0 - persistent cognitive operating system (M1 kernel baseline)"
 requires-python = ">=3.12,<3.14"
+dependencies = [
+    "pydantic>=2.5,<3",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
