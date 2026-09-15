@@ -25,7 +25,7 @@ status:
   m1_kernel: "in_progress_creator_intent_done"
   event_log: "implemented_merged_d5d5567"
   creator_identity: "implemented_merged_9b3955b"
-  intent_abi: "implemented_awaiting_merge"  # module 3 (intent ABI + static validation), in task/intent worktree
+  intent_abi: "implemented_merged_81ceb23"  # module 3 (intent ABI + static validation), merged into main
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -75,10 +75,10 @@ nats:
     note: "bound to mission lifecycle FSM module, not yet built"
 
 current_task:
-  status: "blocked_on_creator_decision"
-  phase: "m1_gate"
-  objective: "configure_model_backend_then_advance_m0_verdict_to_M1_BUILDABLE_NOW"
-  next_step: "creator_selects_model_provider_or_installs_ollama"
+  status: "ready"
+  phase: "m1_module_4"
+  objective: "implement_capability_registry_contract_catalog_impl_and_seed_providers"
+  next_step: "integrate_gate_verdict_and_freebuff_review_then_build_capability_registry"
 
 constraints:
   architecture_freeze: true
