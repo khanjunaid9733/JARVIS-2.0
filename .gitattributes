@@ -1,0 +1,7 @@
+# JARVIS 2.0 — line-ending policy (ADR-008 Windows-native host)
+# Canonical bytes are LF; checkout must not silently rewrite tracked text files,
+# otherwise recorded spec SHA-256 provenance (docs/M0_AUDIT.md) breaks.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

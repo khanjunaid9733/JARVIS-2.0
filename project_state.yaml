@@ -4,13 +4,25 @@ project:
   full_name: "Just A Rather Very Intelligent System"
   workspace: "F:/JARVIS2.0"
   type: "persistent_cognitive_operating_system"
-  updated_at: "2026-09-14T20:47:30+05:30"
+  updated_at: "2026-09-15T02:32:00Z"
+
+spec:
+  version: "1.0.0-freeze"
+  frozen_at_utc: "2026-09-14T15:38Z"
+  canonical_path: "docs/MASTER_BUILD_SPEC.md"
+  sha256: "5df073f751533f3ca447720b28e83d8d9eaadb78770981da539eb18d45ac5313"
+  spec_version_history:
+    - version: "1.0.0-freeze"
+      frozen_at_utc: "2026-09-14T15:38Z"
+      sha256: "5df073f751533f3ca447720b28e83d8d9eaadb78770981da539eb18d45ac5313"
+      change: "M1 readiness patch applied: ADR-005..009 accepted; spec s134 (M1 cut list, milestone ladder mapping, NAT-01..05) merged; Python pinning window (>=3.12,<3.14) established"
 
 status:
   implementation: "not_started"
-  milestone: "m0_completed"
+  milestone: "m0_completed_m1_readiness_patched"
   m0_audit: "completed_verdict_m1_buildable_after_setup"
-  m1_kernel: "ready_to_implement_upon_model_selection"
+  m1_readiness_patch: "applied_freeze_commit_pending"
+  m1_kernel: "blocked_on_model_backend_selection_only"
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -24,16 +36,29 @@ authority:
   development_context: "DEVELOPMENT_CONTEXT.md"
   instructions: "AGENTS.md"
 
+gates:
+  m0:
+    verdict: "M1_BUILDABLE_AFTER_SETUP"
+    audited_at_utc: "2026-09-14T15:38Z"
+    audit_revision: 2
+    open_setup_items:
+      - "configure model backend (install Ollama or select remote OpenAI-compatible endpoint)"
+  m1:
+    entry_conditions:
+      - "model backend configured; M0 rows re-verified -> final verdict M1_BUILDABLE_NOW"
+      - "M1 cut list (spec s134.1) implemented: MUST tier complete; STRETCH (M1.1) optional"
+      - "smoke test (spec s127.1) plus NAT-01..05 (spec s134.3) passing"
+
 current_task:
-  status: "ready"
-  phase: "m0_to_m1_transition"
-  objective: "configure_model_backend_and_begin_m1_kernel_implementation"
-  next_step: "user_selects_model_provider_or_installs_ollama"
+  status: "blocked_on_creator_decision"
+  phase: "m1_gate"
+  objective: "configure_model_backend_then_advance_m0_verdict_to_M1_BUILDABLE_NOW"
+  next_step: "creator_selects_model_provider_or_installs_ollama"
 
 constraints:
   architecture_freeze: true
   no_automatic_installation: true
-  no_runtime_implementation_before_m0: false  # M0 is now completed
+  no_runtime_implementation_before_m0: false  # M0 is completed; M1 entry gated only on model backend
   enforce_substitution_seam: true
   require_creator_authority: true
   deterministic_kernel_authoritative: true

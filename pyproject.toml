@@ -1,0 +1,5 @@
+[project]
+name = "jarvis"
+version = "0.0.0"
+description = "JARVIS 2.0 - persistent cognitive operating system (M1 kernel baseline)"
+requires-python = ">=3.12,<3.14"

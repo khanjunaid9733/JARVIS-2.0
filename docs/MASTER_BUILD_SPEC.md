@@ -9,6 +9,10 @@
 > Big Pickle is the first engineering/reasoning worker used through OpenCode.
 > The runtime being built is JARVIS itself; OpenCode is not JARVIS.
 >
+> **SPEC_VERSION: 1.0.0-freeze** · **Frozen (UTC): 2026-09-14T15:38Z** · **Supersedes:** `_archive/` specification sources
+> Post-M1, manually maintained documentation is minimized to this file, `DECISIONS.md`, and `OBSERVABILITY.md`.
+> Changes to ACCEPTED decisions require creator approval backed by implementation evidence (see `docs/DECISIONS.md`).
+>
 > This document must be treated as a living specification. Before changing architecture,
 > the builder must read this file, inspect the repository, identify current implementation
 > status, update the design artifacts, and then implement incrementally.
@@ -4463,7 +4467,7 @@ The architecture intentionally avoids hard dependencies on:
 Current practical implementation target remains deliberately small:
 
 ```text
-Python 3.12
+Python 3.12 (pinned: requires-python = ">=3.12,<3.14" per ADR-008; uv's default 3.14 interpreter is outside the contract window)
 FastAPI
 Pydantic v2
 SQLite WAL
@@ -5931,6 +5935,8 @@ SCHEMA_CONSTRAINED
 
 The Model Gateway records whether a backend provides native constrained decoding.
 
+**M1 selection (ADR-006, ACCEPTED):** Pydantic v2 schema validation with retry-on-validation-failure is the M1 implementation; Ollama's native JSON-schema format is used behind the identical call when available. Outlines and other constrained-decoding backends remain future Model Gateway adapters. Frozen M1 interface: `generate_structured(role_contract, schema) -> ValidatedOutput | TypedFailure`.
+
 The kernel never assumes that free-form model text is structurally valid.
 
 Structured outputs remain versioned schemas validated before entering deterministic control paths.
@@ -6278,3 +6284,54 @@ Future
 ```
 
 **Architecture freeze remains in force:** adding a new external repository must not alter the kernel contract. It must enter through a contract, provider record, adapter, isolation policy, verification path, and supply-chain review.
+
+---
+
+# 134. M1 CUT LIST, NEGATIVE ACCEPTANCE TESTS, AND MILESTONE MAPPING
+
+Added during the M1 readiness patch (SPEC_VERSION 1.0.0-freeze). Rationale and evidence: `docs/DECISIONS.md` ADR-005…009.
+
+## 134.1 M1 cut list
+
+MUST (the vertical slice):
+
+- event store: SQLite WAL, hash-chained, append-only (ADR-005)
+- creator identity + Ed25519 keypair (ADR-007)
+- intent ABI + deterministic static validation
+- capability registry seeded with 4 providers (filesystem, terminal, one local model adapter, HTTP client)
+- provider adapter interface
+- model gateway + first local adapter (Ollama)
+- `generate_structured` (ADR-006)
+- minimal memory projection (required by the §127.1 smoke test's `memory.write.*` flow — reconciliation, not scope creep)
+- CLI: `init` / `say` / `explain`
+- deterministic replay + `replay --verify`
+- OpenTelemetry emission (`jarvis.*` spans)
+- the five negative acceptance tests (§134.3)
+
+STRETCH (M1.1):
+
+- deterministic FSM (full mission lifecycle states)
+- manifest DAG validation (full dependency-graph checks)
+- full `jarvis explain` cause-chain rendering
+- budget accounting display
+
+EXCLUDED from M1:
+
+- multi-agent runtime, agent capsules, sagas
+- phone / voice / vision bodies
+- external retrieval indexes (Qdrant et al.)
+- robotics / simulation
+
+## 134.2 M1 milestone ladder mapping
+
+The M0–M5 ladder is canonical. Historical PHASE 0–13 references map as: PHASE 0 → M0/M1 scaffolding; 1–2 → M1; 3–4 → M3; 5–6 → M3/M4; 7 → M3; 8 → M4; 9 → M4+; 10 → M2/M3; 11 → M5; 12–13 → post-M5.
+
+## 134.3 Negative acceptance tests (bind to §127.1)
+
+| ID | Scenario | Required observable | Constitution clause |
+|---|---|---|---|
+| NAT-01 | model proposes a capability outside the granted set | `intent.rejected`; zero effects executed | 6, 11 |
+| NAT-02 | non-creator principal emits `capability.provider_added` | authority rejection; registry unchanged | 5 |
+| NAT-03 | replay the identical event log twice | byte-identical projection hashes | 20 |
+| NAT-04 | tampered event row (payload/hash mismatch) | replay halts with typed integrity failure | 10 |
+| NAT-05 | agent emits completion without the deterministic done-gate | refused; no completion event | 12 |
