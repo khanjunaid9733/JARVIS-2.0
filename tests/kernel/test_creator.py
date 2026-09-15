@@ -121,3 +121,13 @@ def test_export_signable_is_deterministic_and_signable(keys_dir):
     assert b"jarvis-authority-v1" in a
     sig = identity.sign(a)
     assert identity.verify(a, sig) is True
+
+
+def test_create_on_corrupt_existing_key_fails_closed(keys_dir):
+    """Fix C: if the key file exists but is corrupt, create() raises
+    AuthorityUnavailable rather than silently regenerating (fail-closed)."""
+    key_path = keys_dir / "creator.ed25519"
+    key_path.parent.mkdir(parents=True, exist_ok=True)
+    key_path.write_bytes(b"\x00" * 31)  # corrupt: not a valid 32-byte seed
+    with pytest.raises(AuthorityUnavailable):
+        CreatorIdentity.create(keys_dir)

@@ -22,9 +22,10 @@ status:
   milestone: "m0_completed_m1_readiness_patched"
   m0_audit: "completed_verdict_m1_buildable_after_setup"
   m1_readiness_patch: "applied_freeze_commit_pending"
-  m1_kernel: "in_progress_event_log_done"
+  m1_kernel: "in_progress_creator_intent_done"
   event_log: "implemented_merged_d5d5567"
-  creator_identity: "not_started"
+  creator_identity: "implemented_merged_9b3955b"
+  intent_abi: "implemented_awaiting_merge"  # module 3 (intent ABI + static validation), in task/intent worktree
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -54,8 +55,8 @@ gates:
 nats:
   nat_01:
     bind: "capability registry + intent ABI (constitution 6/11)"
-    status: "pending"
-    note: "bound to capability/intent modules, not yet built"
+    status: "partial"
+    note: "deterministic half implemented (test_nat_01_proposal_with_ungranted_capability_is_rejected: ungranted capability -> ValidationFailure, no Manifest); zero-effects half needs the effects module (module 8)"
   nat_02:
     bind: "creator identity + capability registry authority events (constitution 5)"
     status: "pending"
