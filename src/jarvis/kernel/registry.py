@@ -16,13 +16,19 @@ JARVIS-owned provider adapters. This module provides:
 
 M1 design decisions (resolved ambiguities, see §105.1, §131.2–131.4):
 
-1. Registry is IN-MEMORY in M1. §131.2 describes the registry as a
-   projection over `capability.*` events; that event-sourced persistence
-   is DEFERRED (a later module). M1 seeds the same 4 providers
-   (§105.1) every boot via `seed_m1_defaults()` and has no mutation API
-   except creator-only `register_provider`. There is no log write, no
-   events table dependency, and no disk state. (Ambiguity #1 from the
-   gate review — reported, not silently resolved.)
+1. Registry is IN-MEMORY in M1, with an OPTIONAL event WRITER
+   (Freebuff F5, creator decision 2026-09-18). §131.2 describes the
+   registry as a projection over `capability.*` events; that
+   event-sourced PERSISTENCE is DEFERRED to the module-7 memory
+   projection. M1 seeds the same 4 providers (§105.1) every boot via
+   `seed_m1_defaults()` and has a mutation API of creator-only
+   `register_provider` and `revoke_provider`. When a caller passes
+   `log=`, successful mutations append one `capability.provider_added`
+   / `capability.provider_revoked` event (stream_id "capability");
+   rejected mutations append NOTHING. When `log` is None (the default)
+   there is NO log write, NO events table dependency, and NO disk state
+   — the pre-F5 behavior is preserved for tests and callers that do not
+   opt in.
 
 2. Trust model is principal_id equality IN M1 (ADR-003). `register_provider`
    accepts only the creator principal, identified by `CREATOR_PRINCIPAL_ID`
@@ -57,11 +63,13 @@ M1 design decisions (resolved ambiguities, see §105.1, §131.2–131.4):
    — reported, not added.)
 """
 
+import json
 from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from .creator import AuthorityUnavailable
+from .event_log import Event, EventLog, _canonical_json
 from .intent import ContractCatalog
 
 
@@ -152,13 +160,19 @@ class CapabilityRegistry(ContractCatalog):
     Satisfies the `ContractCatalog` Protocol consumed by
     `intent.validate_proposal`. Constructor takes no providers; build the
     M1 registry with `seed_m1_defaults()`. Writes are creator-only
-    (`register_provider`), fail fast, and are unavailable outside the
-    creator principal.
+    (`register_provider`, `revoke_provider`), fail fast, and are
+    unavailable outside the creator principal.
+
+    Optional event writer (F5, creator 2026-09-18): pass `log=EventLog`
+    to append `capability.provider_added` / `capability.provider_revoked`
+    events on successful mutations. Default `log=None` keeps the registry
+    fully in-memory with no log/disk dependency (module-4 behavior).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, log: EventLog | None = None) -> None:
         self._bindings: dict[str, ProviderBinding] = {}   # provider_id -> binding
         self._order: list[str] = []                        # registration order
+        self._log = log
 
     # ---- registration -----------------------------------------------------
 
@@ -171,6 +185,11 @@ class CapabilityRegistry(ContractCatalog):
 
         Enforces the args-schema invariant: every ContractDef MUST declare a
         non-empty args_schema (§131.4 + Freebuff flag 1).
+
+        On success with a configured `log`, exactly one
+        `capability.provider_added` event is appended. Rejected
+        registrations (authority gate or args-schema invariant) append
+        NOTHING.
         """
         if principal_id != CREATOR_PRINCIPAL_ID:
             raise AuthorityUnavailable(
@@ -190,6 +209,66 @@ class CapabilityRegistry(ContractCatalog):
         if provider_id not in self._bindings:
             self._order.append(provider_id)
         self._bindings[provider_id] = binding
+        if self._log is not None:
+            self._emit_provider_added(principal_id, binding)
+
+    def revoke_provider(self, provider_id: str, principal_id: str) -> None:
+        """Revoke a registered provider (creator-only, ADR-003).
+
+        Fail-closed: revoking an unknown or already-revoked provider
+        raises a typed `RegistryError` and appends NO event (no
+        idempotent no-op — disclosed choice).
+
+        On success with a configured `log`, one
+        `capability.provider_revoked` event is appended and the provider
+        is removed from ALL resolution paths (`_candidates_for` /
+        `resolve_provider` / `resolve_version` / `get_args_schema` /
+        `has_contract` / `get_provider`).
+        """
+        if principal_id != CREATOR_PRINCIPAL_ID:
+            raise AuthorityUnavailable(
+                f"provider revocation rejected: principal '{principal_id}' "
+                f"is not the creator principal '{CREATOR_PRINCIPAL_ID}'"
+            )
+        if provider_id not in self._bindings:
+            raise RegistryError(
+                f"provider '{provider_id}' is not registered or already revoked"
+            )
+        del self._bindings[provider_id]
+        if provider_id in self._order:
+            self._order.remove(provider_id)
+        if self._log is not None:
+            self._emit_provider_revoked(principal_id, provider_id)
+
+    # ---- event writing (F5) ----------------------------------------------
+
+    def _emit_provider_added(self, principal_id: str, binding: ProviderBinding) -> None:
+        payload = {
+            "provider": binding.model_dump(),
+            "principal_id": principal_id,
+        }
+        # Canonical JSON reuse (event_log._canonical_json); the log itself
+        # re-canonicalizes for the hash chain. Do not hand-roll JSON here.
+        canonical = _canonical_json(payload)
+        event = Event(
+            stream_id="capability",
+            event_type="capability.provider_added",
+            principal_id=principal_id,
+            payload=json.loads(canonical.decode("utf-8")),
+        )
+        assert self._log is not None
+        self._log.append(event)
+
+    def _emit_provider_revoked(self, principal_id: str, provider_id: str) -> None:
+        assert self._log is not None
+        self._log.append(
+            Event(
+                stream_id="capability",
+                event_type="capability.provider_revoked",
+                principal_id=principal_id,
+                payload={"provider_id": provider_id, "principal_id": principal_id},
+            )
+        )
 
     # ---- ContractCatalog Protocol (consumed by intent.py) ------------------
 
@@ -244,11 +323,18 @@ class CapabilityRegistry(ContractCatalog):
 
     @classmethod
     def seed_m1_defaults(
-        cls, creator_principal_id: str = CREATOR_PRINCIPAL_ID
+        cls,
+        creator_principal_id: str = CREATOR_PRINCIPAL_ID,
+        log: EventLog | None = None,
     ) -> "CapabilityRegistry":
         """Build the M1 registry with the 4 seeded providers (§105.1),
-        registered by the creator principal."""
-        registry = cls()
+        registered by the creator principal.
+
+        `log` is passed through to the registry constructor: with a log,
+        each seeded registration appends `capability.provider_added`;
+        with None (default), behavior is unchanged (in-memory only).
+        """
+        registry = cls(log=log)
         registry.register_provider(
             creator_principal_id,
             ProviderBinding(
