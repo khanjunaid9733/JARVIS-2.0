@@ -28,6 +28,8 @@ status:
   intent_abi: "implemented_merged_81ceb23"  # module 3 (intent ABI + static validation), merged into main
   capability_registry: "removed_at_12ba475"  # superseded module-4 interpretation deleted per gate review; authoritative module is registry.py (03b8f3c)
   registry: "implemented_merged_03b8f3c"  # authoritative module-4 spec: in-memory CapabilityRegistry + ProviderAdapter Protocol (interface), NAT-02 deterministic half
+  registry_events: "implemented_merged_5127753"  # Freebuff F5: optional capability.provider_added / provider_revoked writer (log=None preserves in-memory-only)
+  memory_projection: "implemented_merged_pending"  # module 7: deterministic projection state + NAT-03 state digest (s134.1)
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -65,8 +67,8 @@ nats:
     note: "deterministic half implemented (test_nat_02_non_creator_registration_is_rejected: non-creator principal_id -> AuthorityUnavailable, registry unchanged); signature-verification half of authority deferred until a key-based authority module lands (documented M1 trust model: principal_id equality)"
   nat_03:
     bind: "event log -> minimal memory projection (constitution 20)"
-    status: "interim"
-    note: "interim proxy = event-stream digest; MUST be rewritten to digest projection state when the minimal memory projection lands (s134.1)"
+    status: "implemented"
+    note: "digest = sha256(canonical JSON of projection state: last_seq, event_count, streams, providers, memories) in kernel/memory_projection.py (MemoryProjection.digest()); replaces the interim EventLog.projection_digest() stream proxy per s134.1. Event bytes/timestamps excluded; identical logs -> identical digest"
   nat_04:
     bind: "event log (constitution 10)"
     status: "implemented"
@@ -78,9 +80,9 @@ nats:
 
 current_task:
   status: "ready"
-  phase: "m1_module_5"
-  objective: "implement_provider_adapter_interface"
-  next_step: "gate_review_module_4_then_build_provider_adapter"
+  phase: "m1_module_7"
+  objective: "implement_minimal_memory_projection"
+  next_step: "gate_review_module_7"
 
 constraints:
   architecture_freeze: true
