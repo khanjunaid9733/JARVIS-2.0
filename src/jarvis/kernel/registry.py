@@ -409,3 +409,14 @@ class CapabilityRegistry(ContractCatalog):
 
     def get_provider(self, provider_id: str) -> ProviderBinding | None:
         return self._bindings.get(provider_id)
+
+    def resolve_provider(
+        self, contract_id: str, version_constraint: str
+    ) -> str | None:
+        """Return the winning provider_id for a contract (first-registered),
+        or None. Additive method (module 6 seam-gap fix, pre-approved);
+        same first-registered-wins rule as resolve_version."""
+        for provider_id, contract in self._candidates_for(contract_id):
+            if self._constraint_matches(contract.version, version_constraint):
+                return provider_id
+        return None
