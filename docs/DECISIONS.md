@@ -192,3 +192,49 @@ These decisions are binding across all platforms and engineering agents. Changes
 * **Consequences:**
   - M1 is not complete if the smoke test passes but any NAT fails.
   - Each NAT is a named pytest target in the M1 test suite, traceable to a constitution clause.
+
+---
+
+## ADR-010: M1 Model Backend and Routing — Groq OpenAI-Compatible Endpoint; LiteLLM Deferred
+
+* **Status:** `ACCEPTED`
+* **Date:** 2026-09-18
+* **Context:**
+  The M0 audit's open setup item reads "configure model backend (install Ollama
+  or select remote OpenAI-compatible endpoint)" — either path was permitted.
+  Spec §131.11 nevertheless names LiteLLM as "the *routing implementation*
+  behind the Model Gateway interface" for M1, and ADR-006 references Ollama's
+  native JSON-schema format "when available." Module 6 shipped a JARVIS-owned
+  OpenAI-compatible adapter (`src/jarvis/providers/openai_compatible.py`) bound
+  to Groq, with no LiteLLM dependency. The deviation was disclosed in the
+  adapter docstring but not recorded as a decision, so an ACCEPTED decision
+  (§131.11) was left diverged by code.
+* **Decision:**
+  1. The M1 model backend is a **remote OpenAI-compatible endpoint (Groq)**,
+     selected under the M0 audit's explicit "remote OpenAI-compatible endpoint"
+     option. This is a permitted choice, not a deviation.
+  2. The gateway continues to own what §131.11 assigns it: routing policy
+     declaration, budget enforcement, capability metadata, provenance
+     recording, failover semantics, model lifecycle events. Provider API
+     translation and key handling remain inside the JARVIS-owned adapter.
+  3. **LiteLLM is deferred** as the routing *implementation* behind the
+     `ProviderAdapter` seam. M1 has exactly one model route
+     (`model.generate_structured` → `model.adapter`), so a third-party router
+     would add a dependency for no routing benefit and would place a
+     non-JARVIS component inside the substitution seam before multi-provider
+     routing exists. When a second model provider, cross-provider failover, or
+     provider-agnostic key handling is required, LiteLLM is introduced **as an
+     adapter implementation behind the unchanged `ProviderAdapter` Protocol**,
+     per §131.11's own "Revisit at M3" trigger. No kernel change is required
+     for that swap (ADR-001).
+* **Consequences:**
+  - The §131.11 divergence is closed: recorded, with the deferral bounded to a
+    named trigger (multi-provider routing / failover), not left open-ended.
+  - No code change. `openai_compatible.py` remains a conforming adapter; the
+    kernel imports no provider client (ADR-001 intact).
+  - ADR-006's "Ollama native JSON-schema when available" clause is noted as
+    not exercised in M1; the Pydantic-v2-validation-with-retry mechanism it
+    mandates is the active path, unchanged.
+  - If the creator later prefers the Ollama path, only the adapter and the
+    `model.adapter` binding change; the gateway, registry, and intent ABI are
+    unaffected.
