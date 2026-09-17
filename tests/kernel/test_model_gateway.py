@@ -13,7 +13,12 @@ from jarvis.kernel.model_gateway import (
     TypedFailure,
     ValidatedOutput,
 )
-from jarvis.kernel.registry import CapabilityRegistry
+from jarvis.kernel.registry import (
+    CapabilityRegistry,
+    ContractDef,
+    ProviderBinding,
+    ProviderMeta,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -30,11 +35,13 @@ class FakeModelAdapter:
     def __init__(self, outputs):
         self.outputs = list(outputs)
         self.invoked_args = []
+        self.invoked_versions = []
         self.calls = 0
 
     async def invoke(self, contract_id, version, args):
         self.calls += 1
         self.invoked_args.append(args)
+        self.invoked_versions.append(version)
         if not self.outputs:
             return {}
         return self.outputs.pop(0)
@@ -254,6 +261,87 @@ async def test_fallback_provider_id_used_when_primary_unbound():
     assert isinstance(result, ValidatedOutput)
     assert result.provider_id == "model.backup"
     assert result.value.text == "from-backup"
+
+
+# ---------------------------------------------------------------------------
+# Freebuff fixes: F1 contract_version, F4 schema defect handling
+# ---------------------------------------------------------------------------
+
+
+def _dual_version_binding() -> ProviderBinding:
+    return ProviderBinding(
+        meta=ProviderMeta(
+            provider_id="model.adapter",
+            version="1.0.0",
+            license="MIT",
+            license_compatibility="approved",
+            adapter="jarvis.providers.dual",
+            trust_level="trusted",
+            process_model="in_process",
+            network="egress_only",
+            health_check="probe",
+            cve_status="checked_clean",
+            provenance_added_by="creator",
+            provenance_added_at_utc="2026-09-16T00:00:00Z",
+            provenance_reason="F1 dual-version regression",
+        ),
+        contracts=[
+            ContractDef(
+                contract_id="model.generate_structured",
+                version="2.0.0",
+                args_schema={
+                    "role_contract": {"type": "string", "required": True}
+                },
+            ),
+            ContractDef(
+                contract_id="model.generate_structured",
+                version="1.0.0",
+                args_schema={
+                    "role_contract": {"type": "string", "required": True}
+                },
+            ),
+        ],
+    )
+
+
+async def test_contract_version_is_constraint_resolved_not_first_match():
+    registry = CapabilityRegistry()
+    registry.register_provider("creator", _dual_version_binding())
+    fake = FakeModelAdapter([{"text": "x"}])
+    gateway = ModelGateway(resolver=registry, adapters={"model.adapter": fake})
+
+    result = await gateway.generate_structured(RoleContract.SCHEMA_CONSTRAINED, Note)
+
+    assert isinstance(result, ValidatedOutput)
+    # First contract is 2.0.0; constraint ^1.0 must resolve to 1.0.0.
+    assert result.contract_version == "1.0.0"
+    assert fake.invoked_versions == ["1.0.0"]
+
+
+async def test_schema_validator_defect_is_not_retried_or_shipped_as_feedback():
+    from pydantic import field_validator
+
+    class Explosive(BaseModel):
+        text: str
+
+        @field_validator("text")
+        @classmethod
+        def _boom(cls, v):
+            raise RuntimeError("validator bug")
+
+    registry = CapabilityRegistry.seed_m1_defaults()
+    fake = FakeModelAdapter([{"text": "ok"}])
+    gateway = ModelGateway(resolver=registry, adapters={"model.adapter": fake})
+
+    result = await gateway.generate_structured(
+        RoleContract.SCHEMA_CONSTRAINED, Explosive
+    )
+
+    assert isinstance(result, TypedFailure)
+    assert result.reason == "schema_error"
+    assert result.attempts == 1
+    assert fake.calls == 1  # kernel defect, never retried
+    assert fake.invoked_args[0]["feedback"] == []  # never shipped to model
 
 
 # ---------------------------------------------------------------------------
