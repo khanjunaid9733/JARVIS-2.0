@@ -140,7 +140,12 @@ class OpenAICompatibleAdapter:
             raise ProviderTransportError(
                 f"model provider returned HTTP {resp.status_code}"
             )
-        data = resp.json()
+        try:
+            data = resp.json()
+        except ValueError as exc:  # JSONDecodeError → non-JSON 200 body
+            raise ProviderTransportError(
+                f"model provider returned non-JSON body (HTTP {resp.status_code})"
+            ) from exc
         try:
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:

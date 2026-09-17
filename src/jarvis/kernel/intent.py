@@ -180,11 +180,14 @@ class Manifest(BaseModel):
     """Frozen, hashed execution contract. §80.5.
 
     manifest_sha256 is computed over canonical JSON of the full body
-    (excluding manifest_sha256 itself). Frozen → immutable.
+    (excluding manifest_sha256 itself) — INCLUDING temporal fields such as
+    created_at_utc (module decision #6). Frozen → immutable.
 
-    Non-goal: manifest_sha256 does NOT cover temporal fields
-    (created_at_utc). Cross-run identity / reproducibility over temporal
-    fields is out of scope (documented, not engineered).
+    Non-goal: byte-identical manifests for the same proposal across
+    restarts. Because created_at_utc is hashed, re-manifesting yields a new
+    digest. Reproducibility applies to pass/fail validation and argument
+    schema checking, NOT to temporal identity fields (ULID + timestamp make
+    manifests non-replayable by design).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

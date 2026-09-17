@@ -42,7 +42,7 @@ transport call of the bound model adapter is the only outbound traffic
 from enum import StrEnum
 from typing import Any, Generic, Literal, Protocol, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from .registry import ProviderAdapter, ProviderBinding
 
@@ -103,6 +103,8 @@ class ProviderResolver(Protocol):
 
     def resolve_provider(self, contract_id: str, version_constraint: str) -> str | None: ...
 
+    def resolve_version(self, contract_id: str, version_constraint: str) -> str | None: ...
+
     def get_provider(self, provider_id: str) -> ProviderBinding | None: ...
 
 
@@ -115,6 +117,7 @@ class TypedFailure(BaseModel):
         "transport_error",
         "validation_exhausted",
         "adapter_error",
+        "schema_error",
         "authority_unavailable",
     ]
     detail: str
@@ -198,10 +201,17 @@ class ModelGateway:
                 detail=f"resolver returned provider_id {provider_id!r} with no binding",
             )
 
-        contract_version = next(
-            (c.version for c in binding.contracts if c.contract_id == contract_id),
-            binding.meta.version,
+        contract_version = self._resolver.resolve_version(
+            contract_id, version_constraint
         )
+        if contract_version is None:
+            return TypedFailure(
+                reason="no_provider",
+                detail=(
+                    f"resolver returned provider_id {provider_id!r} but no "
+                    f"matching version for {contract_id}@{version_constraint}"
+                ),
+            )
 
         adapter, active_provider_id = self._select_adapter(binding)
         if adapter is None:
@@ -246,9 +256,18 @@ class ModelGateway:
 
             try:
                 value = schema.model_validate(raw)
-            except Exception as exc:  # ValidationError and model mis-validation
+            except ValidationError as exc:  # model output failed validation
                 feedback.append(f"{type(exc).__name__}: {exc}")
                 continue
+            except Exception as exc:  # schema/validator defect, not model noise
+                return TypedFailure(
+                    reason="schema_error",
+                    detail=(
+                        f"{type(exc).__name__}: {exc} (schema/validator defect; "
+                        "model output never shipped as feedback)"
+                    ),
+                    attempts=attempt,
+                )
 
             return ValidatedOutput(
                 value=value,

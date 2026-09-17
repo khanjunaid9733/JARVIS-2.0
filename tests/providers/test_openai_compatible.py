@@ -12,7 +12,7 @@ from jarvis.providers.openai_compatible import OpenAICompatibleAdapter
 
 pytestmark = pytest.mark.anyio
 
-API_KEY = "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"
+API_KEY = "gsk_" + "0" * 56  # structurally-shaped FAKE key for offline tests
 BASE_URL = "https://api.groq.com/openai/v1"
 
 
@@ -110,6 +110,36 @@ async def test_invoke_maps_http_5xx_to_typed_transport_error(env):
     assert "500" in str(exc.value)
 
 
+async def test_invoke_maps_empty_200_body_to_typed_error(env):
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, text=""))
+    adapter = OpenAICompatibleAdapter(transport=transport)
+
+    with pytest.raises(ProviderTransportError) as exc:
+        await adapter.invoke(
+            "model.generate_structured",
+            "1.0.0",
+            {"schema_id": "note", "schema_json": {"type": "object"}},
+        )
+
+    assert "non-JSON" in str(exc.value)
+    assert "200" in str(exc.value)
+
+
+async def test_invoke_maps_redirect_with_empty_body_to_typed_error(env):
+    transport = httpx.MockTransport(lambda request: httpx.Response(302, text=""))
+    adapter = OpenAICompatibleAdapter(transport=transport)
+
+    with pytest.raises(ProviderTransportError) as exc:
+        await adapter.invoke(
+            "model.generate_structured",
+            "1.0.0",
+            {"schema_id": "note", "schema_json": {"type": "object"}},
+        )
+
+    assert "non-JSON" in str(exc.value)
+    assert "302" in str(exc.value)
+
+
 async def test_invoke_rejects_non_json_content(env):
     transport = httpx.MockTransport(
         lambda request: _chat_response("not-json", status=200)
@@ -159,12 +189,16 @@ def test_health_check_false_on_500(env):
 # ---------------------------------------------------------------------------
 
 def test_api_key_never_in_captured_logs(env, caplog):
+    import asyncio
+    import logging
+
+    caplog.set_level(logging.DEBUG, logger="httpx")
+    caplog.set_level(logging.DEBUG)
+
     transport = httpx.MockTransport(
         lambda request: _chat_response(json.dumps({"text": "ok"}))
     )
     adapter = OpenAICompatibleAdapter(transport=transport)
-
-    import asyncio
 
     asyncio.run(
         adapter.invoke(
