@@ -26,7 +26,7 @@ status:
   event_log: "implemented_merged_d5d5567"
   creator_identity: "implemented_merged_9b3955b"
   intent_abi: "implemented_merged_81ceb23"  # module 3 (intent ABI + static validation), merged into main
-  capability_registry: "implemented_merged_4b90124"  # first module-4 interpretation: event-sourced ContractCatalog impl (now superseded by registry)
+  capability_registry: "removed_at_12ba475"  # superseded module-4 interpretation deleted per gate review; authoritative module is registry.py (03b8f3c)
   registry: "implemented_merged_03b8f3c"  # authoritative module-4 spec: in-memory CapabilityRegistry + ProviderAdapter Protocol (interface), NAT-02 deterministic half
   m2_memory_os: "not_started"
   m3_missions: "not_started"
