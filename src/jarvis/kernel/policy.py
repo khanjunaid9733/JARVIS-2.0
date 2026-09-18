@@ -243,6 +243,13 @@ class PolicyEngine:
         required_rank = PRIVACY_MIN_TRUST_RANK[context.privacy_class]
         if required_rank == 0:
             return None
+        if not manifest.contracts:
+            # F-B6: fail closed — a non-public privacy class with no declared
+            # contracts has nothing to verify trust against, so it cannot pass.
+            return (
+                f"no contracts to verify trust against (privacy class "
+                f"{context.privacy_class!r} requires trust rank {required_rank})"
+            )
         for contract in manifest.contracts:
             level = context.contract_trust_levels.get(contract.id)
             if level is None:

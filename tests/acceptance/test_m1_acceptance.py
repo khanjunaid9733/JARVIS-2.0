@@ -137,6 +137,7 @@ async def test_nat_01_effect_outside_manifest_executes_zero_effects():
 
     assert isinstance(result, EffectFailure)
     assert result.reason == "refused"
+    assert result.phase == "authorize"  # F-F17: pin typed failure fields here
     assert adapter.calls == 0
 
 
@@ -153,6 +154,14 @@ def test_nat_02_non_creator_registration_rejected_registry_unchanged(tmp_path):
 
 
 def test_nat_03_replay_twice_is_byte_identical(tmp_path):
+    """Digest stability is guaranteed for re-replays of the SAME log (F-G20).
+
+    The projection digest folds committed payloads, which carry wall-clock
+    timestamps under `SystemClock`; two runs of the same logical program at
+    different times therefore yield different digests. What NAT-03 guarantees
+    — and what §127.1 requires — is that replaying a given home/db twice
+    produces byte-identical digests. It does NOT claim cross-run equality.
+    """
     log = _log(tmp_path)
     CapabilityRegistry.seed_m1_defaults(log=log)
     MemoryWriter(log).remember(content="the safe word is umbrella", source="session 1")

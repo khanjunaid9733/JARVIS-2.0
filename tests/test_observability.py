@@ -73,8 +73,20 @@ def test_event_append_emits_jarvis_event_span(tmp_path):
 
 
 def test_noop_observer_is_inert(tmp_path):
-    log = EventLog(db_path=str(tmp_path / "log.db"), observer=NoOpObserver())
-    assert log.append(Event(stream_id="s", event_type="e", principal_id="creator"))
+    # F-F17: strengthened from truthiness-only — the append must round-trip
+    # through replay unchanged, and no span is produced by the NoOp path.
+    observer, exporter = NoOpObserver(), InMemorySpanExporter()
+    log = EventLog(db_path=str(tmp_path / "log.db"), observer=observer)
+    original = Event(stream_id="s", event_type="e", principal_id="creator")
+
+    event_id = log.append(original)
+
+    assert event_id
+    events = log.replay()
+    assert len(events) == 1
+    assert events[0].event_id == event_id
+    assert events[0].event_type == "e"
+    assert exporter.get_finished_spans() == ()
 
 
 def test_policy_check_emits_span():
@@ -95,6 +107,9 @@ def test_policy_check_emits_span():
         principal_id="creator",
         granted_capabilities=frozenset(),
         autonomy_level=AutonomyLevel.L4,
+        # F-B6: empty contracts + non-public privacy now fail closed, so this
+        # span fixture exercises an ALLOW branch under public privacy.
+        privacy_class="public",
     )
 
     engine.evaluate(manifest, context)

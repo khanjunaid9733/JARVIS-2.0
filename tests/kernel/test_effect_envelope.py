@@ -394,3 +394,116 @@ async def test_log_none_is_fully_in_memory():
 
     assert isinstance(result, EffectEnvelope)
     assert result.audit_event_ids == []
+
+
+# ---------------------------------------------------------------------------
+# F-A1: idempotency window survives engine restart (log-rebuilt committed keys)
+# ---------------------------------------------------------------------------
+
+async def test_restart_same_key_returns_prior_envelope_without_reexecution(tmp_path):
+    log = EventLog(db_path=str(tmp_path / "log.db"))
+    adapter = SpyAdapter("fs.default")
+    manifest = _manifest()
+
+    engine_one = EffectEnvelopeEngine(
+        CapabilityRegistry.seed_m1_defaults(), {"fs.default": adapter}, log=log
+    )
+    first = await engine_one.run(
+        manifest, "fs.read", intended_change={}, idempotency_key="k-restart"
+    )
+    assert isinstance(first, EffectEnvelope)
+    assert first.duplicate is False
+    assert adapter.calls == 1
+
+    engine_two = EffectEnvelopeEngine(
+        CapabilityRegistry.seed_m1_defaults(), {"fs.default": adapter}, log=log
+    )
+    second = await engine_two.run(
+        manifest, "fs.read", intended_change={}, idempotency_key="k-restart"
+    )
+
+    assert isinstance(second, EffectEnvelope)
+    assert second.duplicate is True
+    assert second.effect_id == first.effect_id
+    assert second.verification.passed is True
+    assert adapter.calls == 1  # NOT re-invoked after restart
+    committed = [e for e in log.replay() if e.event_type == "effect.committed"]
+    assert len(committed) == 1  # exactly one commit on the log
+
+
+# ---------------------------------------------------------------------------
+# F-A2: refused effects are attributed to their prepared event
+# ---------------------------------------------------------------------------
+
+async def test_refused_event_is_attributed_to_prepared_event(tmp_path):
+    log = EventLog(db_path=str(tmp_path / "log.db"))
+    engine = EffectEnvelopeEngine(
+        CapabilityRegistry.seed_m1_defaults(),
+        {"fs.default": SpyAdapter("fs.default")},
+        log=log,
+    )
+
+    await engine.run(
+        _manifest(),
+        "fs.read",
+        intended_change={"requested_capabilities": ["ADMIN"]},
+        idempotency_key="k-refused",
+    )
+
+    prepared = next(e for e in log.replay() if e.event_type == "effect.prepared")
+    refused = next(e for e in log.replay() if e.event_type == "effect.refused")
+    assert refused.cause_event_id == prepared.event_id
+    assert refused.correlation_id == prepared.event_id
+
+
+# ---------------------------------------------------------------------------
+# F-E15: effect + verify spans are emitted when an observer is attached
+# ---------------------------------------------------------------------------
+
+async def test_effect_and_verify_spans_emitted_with_observer(tmp_path):
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+        InMemorySpanExporter,
+    )
+
+    from jarvis.observability import (
+        SPAN_EVENT,
+        configure_otel,
+        effect_span_name,
+        verify_span_name,
+    )
+
+    exporter = InMemorySpanExporter()
+    observer = configure_otel(exporter=exporter)
+    log = EventLog(db_path=str(tmp_path / "log.db"), observer=observer)
+    engine = EffectEnvelopeEngine(
+        CapabilityRegistry.seed_m1_defaults(),
+        {"fs.default": SpyAdapter("fs.default")},
+        log=log,
+        observer=observer,
+    )
+
+    await engine.run(
+        _manifest(), "fs.read", intended_change={}, idempotency_key="k-spans"
+    )
+
+    names = {span.name for span in exporter.get_finished_spans()}
+    assert effect_span_name("execute") in names
+    assert verify_span_name("postconditions") in names
+    assert SPAN_EVENT in names
+    assert len(exporter.get_finished_spans()) >= 3
+
+
+async def test_effect_run_without_observer_is_inert(tmp_path):
+    log = EventLog(db_path=str(tmp_path / "log.db"))
+    engine = EffectEnvelopeEngine(
+        CapabilityRegistry.seed_m1_defaults(),
+        {"fs.default": SpyAdapter("fs.default")},
+        log=log,
+    )
+
+    result = await engine.run(
+        _manifest(), "fs.read", intended_change={}, idempotency_key="k-inert"
+    )
+
+    assert isinstance(result, EffectEnvelope)
+    assert result.verification.passed is True

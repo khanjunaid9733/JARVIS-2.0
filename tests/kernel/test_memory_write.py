@@ -118,3 +118,24 @@ def test_appended_memory_can_be_replayed_after_reopen(tmp_path):
     assert result.event_ids[-1] in projection.memories
     assert projection.memories[result.event_ids[-1]]["content"] == "persist me"
     reopened.close()
+
+
+# ---------------------------------------------------------------------------
+# F-C9: non-creator authorship is a disclosed M1 default (provenance carried)
+# ---------------------------------------------------------------------------
+
+def test_non_creator_writer_commits_with_provenance(tmp_path):
+    log = _log(tmp_path)
+    writer = MemoryWriter(log, principal_id="model.agent")
+
+    result = writer.remember(content="self-authored fact", source="agent-1")
+
+    assert result.status == "committed"
+    events = [e for e in log.replay() if e.event_type == MEMORY_COMMITTED]
+    assert len(events) == 1
+    assert events[0].principal_id == "model.agent"
+    projection = MemoryProjection.rebuild(log)
+    assert any(
+        p.get("content") == "self-authored fact"
+        for p in projection.memories.values()
+    )
