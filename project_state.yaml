@@ -4,7 +4,7 @@ project:
   full_name: "Just A Rather Very Intelligent System"
   workspace: "F:/JARVIS2.0"
   type: "persistent_cognitive_operating_system"
-  updated_at: "2026-09-18T04:41:22Z"
+  updated_at: "2026-09-18T13:11:24Z"
 
 spec:
   version: "1.0.0-freeze"
@@ -44,9 +44,11 @@ status:
     F-A2: "fixed_merged_1a1311d"  # LOW: effect.refused stamped with cause_event_id/correlation_id -> prepared event
     F-B6: "fixed_merged_1a1311d"  # MEDIUM: _privacy_violation now fail-closed on empty-contract manifests under non-public privacy class
     F-D13: "fixed_merged_1a1311d"  # MEDIUM: ANSWER_MIN_CONFIDENCE=0.5 floor; low token-overlap queries now report "no relevant memory" instead of a confident guess
-    F-C9: "ruling_disclosed_default_pending_creator_ratification"  # MEDIUM: kept permissive (non-creator MemoryWriter allowed, provenance carried) as disclosed M1 default per review recommendation + §84.4; reversal is a creator decision; pinned by test_non_creator_writer_commits_with_provenance
+    F-C9: "creator_ratified_permissive_default_2026-09-18"  # MEDIUM: RULING = ratify as-is — non-creator MemoryWriter allowed, provenance carried, authority deferred to the M2 key-based module (same half as NAT-02); pinned by test_non_creator_writer_commits_with_provenance
     F-F17: "fixed_merged_1a1311d"  # LOW: noop-observer test strengthened (round-trip + no spans); NAT-01 pins EffectFailure.phase
     F-G20: "documented_merged_1a1311d"  # LOW: NAT-03 docstring now states same-log re-replay guarantee vs program re-run
+  m1_signoff: "creator_signed_off_2026-09-18"  # F-C9 ratified as-is; all M1 gate items closed (see m1_gate_review_findings); MUST-tier complete + dual-verified (Antigravity df72c4a, Freebuff red-team reconciled 1a1311d)
+  m1_e15_residual: "deferred_disclosed_to_m1_1_module14"  # F-E15 seam is fixed + tested; the jarvis CLI constructs no EffectEnvelopeEngine today, so "no effect spans on a default run" is a no-consumer situation, not a bug; orchestration (module 14) MUST pass service.observer into any engine it builds
   m1_gate_review_prompt: "docs/M1_REDTEAM_PROMPT_FB.md"  # paste-ready dispatch prompt for Freebuff (frozen target df72c4a); worktree kept pristine so reviewer preconditions hold
   m1_gate_review_predecessor: "superseded"  # earlier request docs/M1_REDTEAM_REQUEST.md targeted main @ 814d8bd in worktree F:\JARVIS-rt-m1 (branch review/m1-gate @ a6a16aa); superseded by the df72c4a freeze (M6 carry-over + s112 fix now in scope)
   m1_must_tier_verification: "antigravity_verified_cross_environment_confirmed_f8d8a77"  # 2026-09-18: independent read-only audit of all 12 s134.1 MUST items + NAT-01..05 + s112 subset on main @ f8d8a77; 231 passed; verdict CROSS_ENVIRONMENT_CONFIRMED: M1_MUST_TIER_COMPLETE. Gate remains open pending Freebuff red-team + creator sign-off
@@ -108,10 +110,20 @@ m1_definition_of_done:
     - "full mission-lifecycle FSM and full explain cause-chain rendering are STRETCH (M1.1) per s134.1"
 
 current_task:
-  status: "ready_for_gate_review"
-  phase: "m1_must_complete"
+  status: "m1_signed_off"
+  phase: "m1_gate_closed_signoff_recorded"
   objective: "m1_must_tier_and_acceptance_suite_complete"
-  next_step: "creator: ratify F-C9 ruled default (agent-authored memory allowed with provenance) -> M1 sign-off; then push (currently blocked by GitHub branch rules on main)"
+  next_step: "push main to origin (blocked by GitHub branch rules); then decide M1.1 STRETCH scope (entry conditions + module 14 kickoff drafted at docs/MODULE14_KICKOFF.md)"
+
+m1_1_stretch:
+  status: "not_started"
+  entry_conditions:
+    - "M1 sign-off recorded (DONE 2026-09-18)"
+    - "model backend reachable: ADR-010 remote OpenAI-compatible (Groq) endpoint configured with a key"
+    - "main pushed to origin / main branch-protection resolved"
+    - "deterministic kernel invariant to M1.1 work (additive modules only; no src/ behavior changes to modules 1-13)"
+  scope_items: "spec s134.1 STRETCH (M1.1): full mission-lifecycle FSM (module 14), full explain cause-chain rendering, model-backed say/explain rendering, budget display; non-goal: M2 memory OS, M3 missions, M4 multimodal, M5 robotics"
+  kickoff: "docs/MODULE14_KICKOFF.md"
 
 constraints:
   architecture_freeze: true

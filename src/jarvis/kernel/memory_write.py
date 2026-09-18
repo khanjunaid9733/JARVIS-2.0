@@ -54,7 +54,7 @@ class MemoryWriter:
     """Writes gated memories to the append-only log. Emits four event types:
     proposed, verified, then committed (pass) or rejected (fail).
 
-    Disclosed M1 default (F-C9 ruling, pending creator ratification): unlike
+    Disclosed M1 default (F-C9, CREATOR-RATIFIED 2026-09-18): unlike
     `registry.register_provider` (NAT-02 blocks non-creator registration),
     the writer performs NO principal authority check. Any caller may author
     under a supplied `principal_id`, and that principal is carried verbatim
