@@ -44,6 +44,14 @@ event, so a replay consumer can attribute a refusal to its intent.
 M1 scope (ratified): envelope-only. No real fs/terminal/http adapters;
 tests use fake/spy adapters and terminal never performs a real effect.
 Multi-effect mission compensation (§83) is deferred.
+
+Additive mission seam (module 14, post-review): the engine accepts an
+optional `mission_id` and stamps it on every emitted `effect.*` event.
+With `mission_id=None` (module 8 standalone use) behavior is byte-identical
+to before. Module 14's `MissionLifecycleOwner.build_effect_engine()` binds
+the mission id so effect events fold into the deterministic lifecycle —
+previously engine-emitted effect events reached the log orphaned
+(`mission_id=NULL`) and were invisible to the mission slice.
 """
 
 import asyncio
@@ -157,6 +165,7 @@ class EffectEnvelopeEngine:
         clock: Clock | None = None,
         principal_id: str = CREATOR_PRINCIPAL_ID,
         observer: Any | None = None,
+        mission_id: str | None = None,
     ) -> None:
         self._resolver = resolver
         self._adapters = dict(adapters)
@@ -164,6 +173,7 @@ class EffectEnvelopeEngine:
         self._clock: Clock = clock or SystemClock()
         self._principal_id = principal_id
         self._observer = observer or NoOpObserver()
+        self._mission_id = mission_id
         self._committed_keys = self._rebuild_committed_keys(log)
         self._locks: dict[str, asyncio.Lock] = {}
 
@@ -450,6 +460,7 @@ class EffectEnvelopeEngine:
             stream_id=EFFECT_STREAM_ID,
             event_type=event_type,
             principal_id=self._principal_id,
+            mission_id=self._mission_id,
             cause_event_id=cause_event_id,
             correlation_id=correlation_id,
             payload=envelope.model_dump(),

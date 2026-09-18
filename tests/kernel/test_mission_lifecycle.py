@@ -594,6 +594,169 @@ def test_effect_record_tracks_latest_phase(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Post-review reconciliation (Antigravity pass, F-M14 findings):
+#   F-M14-1  engine-built effects must fold into the mission (seam closed)
+#   F-M14-2  multi-effect missions record EVERY failure in the ledger
+#   F-M14-3  completion/refusal must not strand a pending mission
+#   F-M14-4  malformed intended_change must not crash replay
+#   F-M14-5  non-effect events must not corrupt the effect ledger
+# ---------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_f14_1_engine_built_effects_fold_into_lifecycle(tmp_path):
+    log = _log(tmp_path)
+    mid = "m-seam"
+    owner = MissionLifecycleOwner(log, mission_id=mid)
+    registry = CapabilityRegistry.seed_m1_defaults()
+    adapters = {"fs.default": _SpyAdapter("fs.default")}
+
+    _append_event(log, event_type=MISSION_STARTED, mission_id=mid)
+
+    engine = owner.build_effect_engine(registry, adapters)
+    verified = await engine.run(
+        _manifest(),
+        "fs.read",
+        intended_change={"path": "/tmp/ok"},
+        postconditions={"ok": True},
+        idempotency_key="k-seam-ok",
+    )
+
+    from jarvis.kernel.effect_envelope import EffectEnvelope
+    assert isinstance(verified, EffectEnvelope)
+
+    state = owner.rebuild()
+    assert state.state == "executing"  # verified effects do not terminate
+    assert len(state.effects) == 1
+    assert state.effects[0].phase == "effect.verified"
+
+    # A second, UNVERIFIED effect now drives the mission to compensated and
+    # lands a compensation record — engine-emitted effect.failed is visible.
+    adapters["fs.default"].result = {"ok": False}
+    failed = await engine.run(
+        _manifest(),
+        "fs.read",
+        intended_change={"path": "/tmp/fail"},
+        postconditions={"ok": True},
+        idempotency_key="k-seam-fail",
+    )
+    from jarvis.kernel.effect_envelope import EffectFailure
+    assert isinstance(failed, EffectFailure)
+
+    state2 = owner.rebuild()
+    assert state2.state == "compensated"
+    assert len(state2.compensation) == 1
+    assert state2.compensation[0].effect_id is not None
+    assert log.verify_chain() is True
+
+
+def test_f14_2_every_failed_effect_is_recorded_for_compensation(tmp_path):
+    log = _log(tmp_path)
+    mid = "m-multi-fail"
+
+    _append_event(log, event_type=MISSION_STARTED, mission_id=mid)
+    _append_event(
+        log,
+        event_type=EFFECT_FAILED,
+        mission_id=mid,
+        payload={"effect_id": "effect-1", "intended_change": {"action": "write-1"}},
+    )
+    _append_event(
+        log,
+        event_type=EFFECT_FAILED,
+        mission_id=mid,
+        payload={"effect_id": "effect-2", "intended_change": {"action": "write-2"}},
+    )
+
+    state = MissionLifecycleOwner(log, mission_id=mid).rebuild()
+
+    assert state.state == "compensated"
+    assert len(state.compensation) == 2  # both failures registered (§83)
+    assert [c.effect_id for c in state.compensation] == ["effect-1", "effect-2"]
+    assert len(state.effects) == 2  # one latest-phase record per effect_id
+    assert {r.phase for r in state.effects} == {EFFECT_FAILED}
+
+
+def test_f14_3_completion_from_pending_is_not_a_zombie(tmp_path):
+    log = _log(tmp_path)
+    mid = "m-zombie"
+
+    _append_event(
+        log,
+        event_type="task.completed",
+        mission_id=mid,
+        stream_id="orchestration",
+        task_id="t1",
+        payload={"kind": "task.completion", "passed": True, "checks": [], "evidence": {}},
+    )
+    state, appended = MissionLifecycleOwner(log, mission_id=mid).advance()
+
+    assert state.state == "completed"
+    assert state.is_terminal() is True
+    assert len(appended) == 1  # exactly lifecycle.completed emitted
+    lifecycle_types = [
+        e.event_type for e in log.replay() if e.event_type.startswith("lifecycle.")
+    ]
+    assert lifecycle_types == [LIFECYCLE_COMPLETED]
+
+    log2 = _log(tmp_path, name="zombie-refused.db")
+    _append_event(
+        log2,
+        event_type="task.completion_refused",
+        mission_id=mid,
+        stream_id="orchestration",
+        task_id="t2",
+        payload={"kind": "task.completion", "passed": False, "checks": [], "evidence": {}},
+    )
+    state2, appended2 = MissionLifecycleOwner(log2, mission_id=mid).advance()
+
+    assert state2.state == "refused"
+    assert len(appended2) == 1  # lifecycle.refused emitted
+
+
+def test_f14_4_malformed_intended_change_does_not_crash_replay(tmp_path):
+    log = _log(tmp_path)
+    mid = "m-poison"
+
+    _append_event(log, event_type=MISSION_STARTED, mission_id=mid)
+    _append_event(
+        log,
+        event_type=EFFECT_FAILED,
+        mission_id=mid,
+        payload={"effect_id": "e-bad", "intended_change": "string-not-dict"},
+    )
+
+    state = MissionLifecycleOwner(log, mission_id=mid).rebuild()
+
+    assert state.state == "compensated"
+    assert len(state.compensation) == 1
+    # non-dict intended_change is preserved verbatim under a raw key, never
+    # coerced by dict(...) in a way that can raise during fold.
+    assert state.compensation[0].intended_change == {"raw": "string-not-dict"}
+    assert log.verify_chain() is True
+
+
+def test_f14_5_non_effect_event_does_not_corrupt_effect_ledger(tmp_path):
+    log = _log(tmp_path)
+    mid = "m-ledger"
+
+    _append_event(log, event_type=MISSION_STARTED, mission_id=mid)
+    _append_event(
+        log,
+        event_type="task.completed",
+        mission_id=mid,
+        stream_id="orchestration",
+        task_id="t1",
+        payload={"effect_id": "not-an-effect", "kind": "task.completion",
+                 "passed": True, "checks": [], "evidence": {}},
+    )
+
+    state = MissionLifecycleOwner(log, mission_id=mid).rebuild()
+
+    assert state.state == "completed"
+    assert state.effects == ()  # task.completed cannot join the effect ledger
+
+
+# ---------------------------------------------------------------------------
 # F-E15: build_effect_engine threads observer into every built engine
 # ---------------------------------------------------------------------------
 

@@ -43,8 +43,19 @@ carry wall-clock timestamps). The digest is sha256 over canonical state
 Judgment call (documented): `effect.refused` (NAT-01 style) folds into the
 effect ledger but does NOT terminate a mission — a sub-effect authorization
 refusal is not a mission refusal; the orchestrator's later gated/un-gated
-completion drives `refused`. Terminal states are absorbing: once
-completed/refused/compensated, later events are ignored.
+completion drives `refused`.
+
+Absorbing semantics (post-ratification): `completed`/`refused` are FULLY
+absorbing — a decided mission ignores later events entirely. `compensated`
+is terminal for TRANSITIONS but keeps folding the effect/compensation
+ledger, so a multi-effect mission (§83) records EVERY failed effect for
+compensation; real compensator execution lands with M2 effects, M1.1 only
+declares the records (`CompensationRecord.status == "declared"`, §83 seam).
+
+Completion authority: a `task.completed` / `task.completion_refused` event
+is only ever appended by `CompletionGate` (NAT-05), so it is authoritative
+in ANY state — including `pending` — and drives the mission to
+`completed`/`refused` there rather than stranding a zombie pending state.
 """
 
 from hashlib import sha256
@@ -99,13 +110,35 @@ _INTAKE_EVENT_TYPES = frozenset(
     }
 )
 
+_EFFECT_EVENT_TYPES = frozenset(
+    {
+        EFFECT_PREPARED,
+        EFFECT_AUTHORIZED,
+        EFFECT_COMMITTED,
+        EFFECT_VERIFIED,
+        EFFECT_REFUSED,
+        EFFECT_FAILED,
+    }
+)
+
 TERMINAL_STATES: frozenset[LifecycleState] = frozenset(
     {"completed", "refused", "compensated"}
+)
+
+# completed/refused are FULLY absorbing. compensated keeps folding the
+# effect/compensation ledger (§83 multi-effect): every failure is recorded.
+_ABSORBING_STATES: frozenset[LifecycleState] = frozenset(
+    {"completed", "refused"}
 )
 
 # The DATA transition table: (state, event_type) -> next state.
 TRANSITIONS: dict[tuple[LifecycleState, str], LifecycleState] = {
     ("pending", MISSION_STARTED): "executing",
+    # CompletionGate is the authoritative completion source (NAT-05): a
+    # task.completed/refused event fires wherever it lands, so a mission
+    # whose completion landed before acceptance is not stranded in pending.
+    ("pending", COMPLETION_EVENT_TYPE): "completed",
+    ("pending", COMPLETION_REFUSED_EVENT_TYPE): "refused",
     ("executing", COMPLETION_EVENT_TYPE): "completed",
     ("executing", COMPLETION_REFUSED_EVENT_TYPE): "refused",
     ("pending", EFFECT_FAILED): "compensated",
@@ -175,14 +208,15 @@ class MissionLifecycle(BaseModel):
             return self, None
         if event.event_type in _LIFECYCLE_EVENT_TYPES:
             return self, None
-        if self.is_terminal():
-            # absorbing: a finished mission ignores later events entirely —
-            # no transition, no ledger update, no event_count advance.
+        if self.state in _ABSORBING_STATES:
+            # decided missions (completed/refused) ignore later events
+            # entirely — no transition, no ledger update, no event_count
+            # advance. (compensated still folds the compensation ledger.)
             return self, None
 
         effects = self.effects
         effect_id = event.payload.get("effect_id") if event.payload else None
-        if isinstance(effect_id, str) and effect_id:
+        if event.event_type in _EFFECT_EVENT_TYPES and isinstance(effect_id, str) and effect_id:
             effects = tuple(
                 (EffectRecord(effect_id=effect_id, phase=event.event_type))
                 if record.effect_id == effect_id
@@ -196,13 +230,17 @@ class MissionLifecycle(BaseModel):
 
         compensation = self.compensation
         if event.event_type == EFFECT_FAILED and isinstance(effect_id, str) and effect_id:
+            raw = event.payload.get("intended_change")
+            intended_change = (
+                dict(raw)
+                if isinstance(raw, dict)
+                else ({"raw": raw} if raw is not None else {})
+            )
             compensation = compensation + (
                 CompensationRecord(
                     effect_id=effect_id,
                     failed_event_id=event.event_id or "",
-                    intended_change=dict(
-                        event.payload.get("intended_change") or {}
-                    ),
+                    intended_change=intended_change,
                 ),
             )
 
@@ -300,6 +338,11 @@ class MissionLifecycleOwner:
         Appending is skipped when a `lifecycle.*` event with the same
         (transition, cause_event_id) already exists, so a second advance
         over an unchanged log appends nothing (loop-safe, idempotent).
+
+        Single-writer contract (M1.1): `advance()` is the orchestrator's
+        synchronous fold; concurrent same-mission advance() calls are out of
+        scope and could each append a logical match before either commits
+        (their lifecycle.* events remain no-ops to the fold).
         """
         slice_events = self._slice()
         existing_causes = {
@@ -338,4 +381,5 @@ class MissionLifecycleOwner:
             principal_id=principal_id or self._principal_id,
             observer=self._observer,
             clock=clock,
+            mission_id=self._mission_id,
         )
