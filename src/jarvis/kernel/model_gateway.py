@@ -29,9 +29,13 @@ the error text is appended as `feedback` to the next adapter request
 ADR-001 seam: the gateway never imports a provider client; adapters
 implement the `ProviderAdapter` Protocol from `jarvis.kernel.registry`.
 Transport-level failures are mapped to the typed `ProviderTransportError`
-defined here (adapters import it). Decision disclosed: the transport
-exception lives in `model_gateway.py` (not `registry.py`) so `registry.py`
-changes only by the single pre-approved additive `resolve_provider` method.
+defined here (adapters import it), and a bound-but-failing primary falls
+over to the declared `fallback_provider_id` at runtime (F14). Runtime
+dispatch records the version the ACTIVE provider exposes via the additive
+`resolve_version_for_provider` resolver method (F3), so provenance stays
+consistent when a fallback runs. The transport exception lives in
+`model_gateway.py` (not `registry.py`); `registry.py` gains only the two
+additive resolution methods (`resolve_provider`, `resolve_version_for_provider`).
 
 No effects, no tools: this module proposes; it does not dispose. It makes
 no calls to fs/terminal/http capability adapters. The `egress_only`
@@ -39,6 +43,7 @@ transport call of the bound model adapter is the only outbound traffic
 (authorized by the `model.adapter` provider declaration).
 """
 
+import hashlib
 from enum import StrEnum
 from typing import Any, Generic, Literal, Protocol, TypeVar
 
@@ -49,6 +54,7 @@ from ..observability import (
     SPAN_REGISTRY_RESOLVE,
     NoOpObserver,
 )
+from .event_log import _canonical_json
 from .registry import ProviderAdapter, ProviderBinding
 
 
@@ -110,6 +116,10 @@ class ProviderResolver(Protocol):
 
     def resolve_version(self, contract_id: str, version_constraint: str) -> str | None: ...
 
+    def resolve_version_for_provider(
+        self, provider_id: str, contract_id: str, version_constraint: str
+    ) -> str | None: ...
+
     def get_provider(self, provider_id: str) -> ProviderBinding | None: ...
 
 
@@ -144,6 +154,7 @@ class ValidatedOutput(BaseModel, Generic[T]):
     provider_id: str
     contract_id: str
     contract_version: str
+    schema_sha256: str
     attempts: int
 
 
@@ -218,20 +229,13 @@ class ModelGateway:
                     detail=f"resolver returned provider_id {provider_id!r} with no binding",
                 )
 
-            contract_version = self._resolver.resolve_version(
-                contract_id, version_constraint
-            )
-            if contract_version is None:
-                return TypedFailure(
-                    reason="no_provider",
-                    detail=(
-                        f"resolver returned provider_id {provider_id!r} but no "
-                        f"matching version for {contract_id}@{version_constraint}"
-                    ),
-                )
-
-        adapter, active_provider_id = self._select_adapter(binding)
-        if adapter is None:
+        # Runtime adapter chain: primary (if bound), then the declared
+        # fallback (if bound). A bound-but-failing primary now falls through
+        # to the fallback at runtime (F14), and the version recorded is the
+        # one the ACTIVE provider actually exposes — not a provider-agnostic
+        # first match run under the primary's binding (F3).
+        chain = self._adapter_chain(binding, provider_id)
+        if not chain:
             return TypedFailure(
                 reason="adapter_error",
                 detail=(
@@ -245,85 +249,128 @@ class ModelGateway:
             )
 
         resolve_schema_id = schema_id or schema.__name__
+        schema_json = schema.model_json_schema()
+        schema_sha256 = hashlib.sha256(_canonical_json(schema_json)).hexdigest()
         feedback: list[str] = []
 
-        for attempt in range(1, self._max_attempts + 1):
-            args: dict[str, Any] = {
-                "role_contract": role_contract.value,
-                "schema_id": resolve_schema_id,
-                "schema_json": schema.model_json_schema(),
-                "intent_id": intent_id,
-                "task_id": task_id,
-                "feedback": list(feedback),
-            }
-            with self._span(
-                SPAN_MODEL_CALL,
-                {
-                    "model.name": active_provider_id,
-                    "contract.id": contract_id,
-                    "contract.version": contract_version,
-                    "prompt.version": resolve_schema_id,
-                },
-            ):
-                try:
-                    raw = await adapter.invoke(contract_id, contract_version, args)
-                except ProviderTransportError as exc:
-                    return TypedFailure(
-                        reason="transport_error",
-                        detail=str(exc),
-                        attempts=attempt,
-                    )
-                except Exception as exc:  # adapter contract violation
-                    return TypedFailure(
-                        reason="adapter_error",
-                        detail=f"{type(exc).__name__}: {exc}",
-                        attempts=attempt,
-                    )
-
-            try:
-                value = schema.model_validate(raw)
-            except ValidationError as exc:  # model output failed validation
-                feedback.append(f"{type(exc).__name__}: {exc}")
-                continue
-            except Exception as exc:  # schema/validator defect, not model noise
+        chain_index = 0
+        while True:
+            active_provider_id = chain[chain_index]
+            adapter = self._adapters[active_provider_id]
+            contract_version = self._version_for(
+                active_provider_id, contract_id, version_constraint
+            )
+            if contract_version is None:
                 return TypedFailure(
-                    reason="schema_error",
+                    reason="no_provider",
                     detail=(
-                        f"{type(exc).__name__}: {exc} (schema/validator defect; "
-                        "model output never shipped as feedback)"
+                        f"active provider {active_provider_id!r} exposes no "
+                        f"version for {contract_id}@{version_constraint}"
                     ),
-                    attempts=attempt,
                 )
 
-            return ValidatedOutput(
-                value=value,
-                role_contract=role_contract,
-                provider_id=active_provider_id,
-                contract_id=contract_id,
-                contract_version=contract_version,
-                attempts=attempt,
-            )
+            for attempt in range(1, self._max_attempts + 1):
+                args: dict[str, Any] = {
+                    "role_contract": role_contract.value,
+                    "schema_id": resolve_schema_id,
+                    "schema_json": schema_json,
+                    "schema_sha256": schema_sha256,
+                    "intent_id": intent_id,
+                    "task_id": task_id,
+                    "feedback": list(feedback),
+                }
+                with self._span(
+                    SPAN_MODEL_CALL,
+                    {
+                        "model.name": active_provider_id,
+                        "contract.id": contract_id,
+                        "contract.version": contract_version,
+                        "prompt.version": resolve_schema_id,
+                    },
+                ):
+                    try:
+                        raw = await adapter.invoke(
+                            contract_id, contract_version, args
+                        )
+                    except ProviderTransportError as exc:
+                        if chain_index + 1 < len(chain):
+                            chain_index += 1
+                            break  # fail over to the next bound adapter (F14)
+                        return TypedFailure(
+                            reason="transport_error",
+                            detail=str(exc),
+                            attempts=attempt,
+                        )
+                    except Exception as exc:  # adapter contract violation
+                        return TypedFailure(
+                            reason="adapter_error",
+                            detail=f"{type(exc).__name__}: {exc}",
+                            attempts=attempt,
+                        )
 
-        return TypedFailure(
-            reason="validation_exhausted",
-            detail=(
-                f"model output failed validation after {self._max_attempts} "
-                "attempts; last error sent back as feedback"
-            ),
-            attempts=self._max_attempts,
+                try:
+                    value = schema.model_validate(raw)
+                except ValidationError as exc:  # model output failed validation
+                    feedback.append(f"{type(exc).__name__}: {exc}")
+                    continue
+                except Exception as exc:  # schema/validator defect, not model noise
+                    return TypedFailure(
+                        reason="schema_error",
+                        detail=(
+                            f"{type(exc).__name__}: {exc} (schema/validator defect; "
+                            "model output never shipped as feedback)"
+                        ),
+                        attempts=attempt,
+                    )
+
+                return ValidatedOutput(
+                    value=value,
+                    role_contract=role_contract,
+                    provider_id=active_provider_id,
+                    contract_id=contract_id,
+                    contract_version=contract_version,
+                    schema_sha256=schema_sha256,
+                    attempts=attempt,
+                )
+            else:
+                return TypedFailure(
+                    reason="validation_exhausted",
+                    detail=(
+                        f"model output failed validation after {self._max_attempts} "
+                        "attempts; last error sent back as feedback"
+                    ),
+                    attempts=self._max_attempts,
+                )
+
+    def _version_for(
+        self, provider_id: str, contract_id: str, version_constraint: str
+    ) -> str | None:
+        """Version the given provider exposes for the contract (F3).
+
+        Falls back to the provider-agnostic resolution when the active
+        provider exposes no binding (a fallback configured by id only, with
+        the version still meaningful from the primary's registration).
+        """
+        resolve_for_provider = getattr(
+            self._resolver, "resolve_version_for_provider", None
         )
+        if resolve_for_provider is not None:
+            version = resolve_for_provider(
+                provider_id, contract_id, version_constraint
+            )
+            if version is not None:
+                return version
+        return self._resolver.resolve_version(contract_id, version_constraint)
 
-    def _select_adapter(
-        self, binding: ProviderBinding
-    ) -> tuple[ProviderAdapter | None, str]:
-        """Pick the runtime adapter: primary, else fallback (ADR-004/provenance)."""
-        primary = binding.meta.provider_id
-        if primary in self._adapters:
-            return self._adapters[primary], primary
+    def _adapter_chain(self, binding: ProviderBinding, provider_id: str) -> list[str]:
+        """Ordered adapter ids to try: primary then declared fallback (F14)."""
+        chain: list[str] = []
+        if provider_id in self._adapters:
+            chain.append(provider_id)
         fallback = binding.meta.fallback_provider_id
-        if fallback and fallback in self._adapters:
-            return self._adapters[fallback], fallback
-        return None, primary
+        if fallback and fallback in self._adapters and fallback not in chain:
+            chain.append(fallback)
+        return chain
 
 
 # ---------------------------------------------------------------------------

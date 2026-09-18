@@ -64,6 +64,7 @@ M1 design decisions (resolved ambiguities, see §105.1, §131.2–131.4):
 """
 
 import json
+import re
 from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -71,6 +72,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from .creator import AuthorityUnavailable
 from .event_log import Event, EventLog, _canonical_json
 from .intent import ContractCatalog
+
+
+# Version dialect (F5/F11): a version must be strictly numeric-dotted
+# ("1", "1.2", "1.2.3"). Pre-release suffixes ("1.1.0-beta") and whitespace
+# padding ("1.0.0 ") are unresolvable — no semver library is used.
+_NUMERIC_VERSION = re.compile(r"^\d+(?:\.\d+)*$")
 
 
 # ---------------------------------------------------------------------------
@@ -297,6 +304,26 @@ class CapabilityRegistry(ContractCatalog):
                 return contract.version
         return None
 
+    def resolve_version_for_provider(
+        self, provider_id: str, contract_id: str, version_constraint: str
+    ) -> str | None:
+        """Resolve a contract version scoped to ONE provider (F3).
+
+        The model gateway uses this to bind the version actually executed by
+        the active adapter (primary or fallback), instead of a provider-
+        agnostic first match that can mislabel provenance. Returns None if
+        the provider is unregistered or exposes no matching version.
+        """
+        binding = self._bindings.get(provider_id)
+        if binding is None:
+            return None
+        for contract in binding.contracts:
+            if contract.contract_id == contract_id and self._constraint_matches(
+                contract.version, version_constraint
+            ):
+                return contract.version
+        return None
+
     def get_args_schema(self, contract_id: str, resolved_version: str) -> dict[str, Any]:
         """Args schema of the winning provider for that concrete version."""
         for _, contract in self._candidates_for(contract_id):
@@ -308,13 +335,23 @@ class CapabilityRegistry(ContractCatalog):
     def _constraint_matches(version: str, constraint: str) -> bool:
         """M1 dialect: exact match OR caret-prefix match.
 
-        "^1" / "^1.0" / "^1.0.0" matches any version whose first component
+        `version` MUST be strictly numeric-dotted ("1", "1.2.0"): pre-release
+        suffixes and whitespace padding are unresolvable under BOTH dialects
+        (F5/F11 — symmetric, no caret/exact asymmetry). Caret requires a fully
+        numeric-dotted constraint and is REJECTED on major 0 (no stable-
+        compatibility promise on 0.x; pin an exact version instead, F5).
+        "^1" / "^1.0" / "^1.0.0" match any version whose first component
         equals the integer after the caret. No semver library (documented).
         """
+        if not _NUMERIC_VERSION.match(version):
+            return False
         constraint = constraint.strip()
         if constraint.startswith("^"):
-            major = constraint[1:].split(".", 1)[0].strip()
-            if not major.isdigit():
+            components = constraint[1:].split(".")
+            if not all(component.strip().isdigit() for component in components):
+                return False
+            major = components[0].strip()
+            if major == "0":
                 return False
             return version.split(".", 1)[0] == major
         return version == constraint

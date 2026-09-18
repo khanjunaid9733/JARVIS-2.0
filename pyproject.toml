@@ -12,6 +12,12 @@ dependencies = [
     "opentelemetry-sdk>=1.20,<2",
 ]
 
+[dependency-groups]
+# Red-team finding F8: pytest was never declared, so `uv run pytest` could
+# silently resolve a system PATH pytest under an interpreter below the
+# ADR-008 pin floor. Declaring it pins the suite to the project venv.
+dev = ["pytest>=9,<10"]
+
 [project.scripts]
 jarvis = "jarvis.cli:main"
 

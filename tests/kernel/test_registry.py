@@ -188,6 +188,134 @@ def test_first_registered_wins(versioned_registry):
 
 
 # ---------------------------------------------------------------------------
+# M6 carry-over (F4/F5/F11): dialect hardening + re-registration precedence
+# ---------------------------------------------------------------------------
+
+def _dialect_registry(version: str) -> CapabilityRegistry:
+    registry = CapabilityRegistry()
+    registry.register_provider(
+        CREATOR_PRINCIPAL_ID,
+        _factory_binding(
+            contracts=[
+                ContractDef(
+                    contract_id="c.dialect",
+                    version=version,
+                    args_schema={"x": {"type": "string", "required": True}},
+                )
+            ]
+        ),
+    )
+    return registry
+
+
+def test_caret_on_zero_major_is_rejected():
+    registry = _dialect_registry("0.9.0")
+    assert registry.has_contract("c.dialect", "^0.2") is False
+    assert registry.resolve_version("c.dialect", "^0.2") is None
+    assert registry.resolve_version("c.dialect", "0.9.0") == "0.9.0"  # exact pins
+
+
+def test_prerelease_version_is_not_resolvable():
+    registry = _dialect_registry("1.1.0-beta")
+    assert registry.has_contract("c.dialect", "^1") is False
+    assert registry.resolve_version("c.dialect", "1.1.0-beta") is None
+
+
+def test_whitespace_padded_version_is_unresolvable_both_dialects():
+    registry = _dialect_registry("1.0.0 ")
+    assert registry.has_contract("c.dialect", "1.0.0") is False
+    assert registry.has_contract("c.dialect", "^1") is False
+
+
+def test_malformed_caret_constraint_is_rejected():
+    registry = _dialect_registry("1.0.0")
+    assert registry.has_contract("c.dialect", "^1.x") is False
+    assert registry.has_contract("c.dialect", "^1") is True
+
+
+def test_resolve_version_for_provider_is_scoped_to_that_provider():
+    registry = CapabilityRegistry()
+    registry.register_provider(
+        CREATOR_PRINCIPAL_ID,
+        _factory_binding(
+            meta=_factory_meta(provider_id="prov.a"),
+            contracts=[
+                ContractDef(
+                    contract_id="c.scoped",
+                    version="1.0.0",
+                    args_schema={"x": {"type": "string", "required": True}},
+                )
+            ],
+        ),
+    )
+    registry.register_provider(
+        CREATOR_PRINCIPAL_ID,
+        _factory_binding(
+            meta=_factory_meta(provider_id="prov.b"),
+            contracts=[
+                ContractDef(
+                    contract_id="c.scoped",
+                    version="1.2.0",
+                    args_schema={"x": {"type": "string", "required": True}},
+                )
+            ],
+        ),
+    )
+    assert registry.resolve_version("c.scoped", "^1") == "1.0.0"  # global first match
+    assert registry.resolve_version_for_provider("prov.b", "c.scoped", "^1") == "1.2.0"
+    assert registry.resolve_version_for_provider("prov.c", "c.scoped", "^1") is None
+
+
+def test_reregistration_keeps_first_registered_precedence():
+    registry = CapabilityRegistry()
+    registry.register_provider(
+        CREATOR_PRINCIPAL_ID,
+        _factory_binding(
+            meta=_factory_meta(provider_id="prov.a"),
+            contracts=[
+                ContractDef(
+                    contract_id="c.x",
+                    version="1.0.0",
+                    args_schema={"x": {"type": "string", "required": True}},
+                )
+            ],
+        ),
+    )
+    registry.register_provider(
+        CREATOR_PRINCIPAL_ID,
+        _factory_binding(
+            meta=_factory_meta(provider_id="prov.b"),
+            contracts=[
+                ContractDef(
+                    contract_id="c.x",
+                    version="1.0.0",
+                    args_schema={"x": {"type": "string", "required": True}},
+                )
+            ],
+        ),
+    )
+    assert registry.resolve_provider("c.x", "1.0.0") == "prov.a"
+
+    registry.register_provider(
+        CREATOR_PRINCIPAL_ID,
+        _factory_binding(
+            meta=_factory_meta(provider_id="prov.b"),
+            contracts=[
+                ContractDef(
+                    contract_id="c.x",
+                    version="1.0.0",
+                    args_schema={"y": {"type": "integer", "required": True}},
+                )
+            ],
+        ),
+    )
+    assert registry.resolve_provider("c.x", "1.0.0") == "prov.a"
+    assert registry.get_args_schema("c.x", "1.0.0") == {
+        "x": {"type": "string", "required": True}
+    }
+
+
+# ---------------------------------------------------------------------------
 # ContractCatalog Protocol surface (consumed by intent.validate_proposal)
 # ---------------------------------------------------------------------------
 
