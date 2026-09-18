@@ -4,7 +4,7 @@ project:
   full_name: "Just A Rather Very Intelligent System"
   workspace: "F:/JARVIS2.0"
   type: "persistent_cognitive_operating_system"
-  updated_at: "2026-09-18T21:40:00Z"
+  updated_at: "2026-09-19T09:20:00Z"
 
 spec:
   version: "1.0.0-freeze"
@@ -55,8 +55,12 @@ status:
   m1_gate_review_predecessor: "superseded"  # earlier request docs/M1_REDTEAM_REQUEST.md targeted main @ 814d8bd in worktree F:\JARVIS-rt-m1 (branch review/m1-gate @ a6a16aa); superseded by the df72c4a freeze (M6 carry-over + s112 fix now in scope)
   m1_must_tier_verification: "antigravity_verified_cross_environment_confirmed_f8d8a77"  # 2026-09-18: independent read-only audit of all 12 s134.1 MUST items + NAT-01..05 + s112 subset on main @ f8d8a77; 231 passed; verdict CROSS_ENVIRONMENT_CONFIRMED: M1_MUST_TIER_COMPLETE. Gate remains open pending Freebuff red-team + creator sign-off
   m2_memory_os:
-  status: "m2.1_ratified_in_progress"  # 2026-09-18; creator ratified docs/M2_1_KICKOFF.md (contract A-E: trace event, deterministic writer, Memory API, MemoryIndex projection, CLI recall); M1.1 signed off 2026-09-18 @ 160a3c2; M2 proof: read file -> evidence -> memory trace -> restart -> recover
-  packages: "M2.1 memory API + episodic trace (IN PROGRESS) | M2.2 emb/retrieval seams | M2.3 consolidation | M2.4 verification | M2.5 PII seam | M2.6 FS effect + sandbox | M2.7 manifest compilation + DAG | M2.8 key authority | M2.9 budgets/rate limits | M2.10 checkpoints"  # full list in docs/M2_KICKOFF.md
+  status: "m2_1_completed"  # 2026-09-19; M2.1 (memory API + episodic trace) merged to main @ 902392a; 332 passed; contract ratified docs/M2_1_KICKOFF.md; audit + red-team reconciled docs/M2_1_RECONCILIATION.md
+  creator_rulings_accepted:  # 2026-09-19 (docs/M2_1_RECONCILIATION.md §3)
+    - "FB-1 recall tier distinction -> DEFERRED to M2.2 (RecalledMemory frozen; rerank seam carries tier/verification)"
+    - "FB-2 dual NAT-03 digest -> MemoryIndex.digest() becomes the single memory-tract digest when M2.10 recovery folds providers; module-7 digest remains frozen M1 ledger digest"
+    - "FB-6 refused-trace asymmetry -> ACCEPTED + documented (no memory.trace.rejected)"
+  packages: "M2.1 memory API + episodic trace (DONE) | M2.2 emb/retrieval seams (NEXT: recall tier/kind) | M2.3 consolidation | M2.4 verification | M2.5 PII seam | M2.6 FS effect + sandbox | M2.7 manifest compilation + DAG | M2.8 key authority | M2.9 budgets/rate limits | M2.10 checkpoints (single memory digest)"  # full list in docs/M2_KICKOFF.md
   m3_missions: "not_started"
   m4_multimodal: "not_started"
   m5_robotics: "not_started"
@@ -114,10 +118,10 @@ m1_definition_of_done:
     - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)
 
 current_task:
-  status: "m2_1_in_progress"
+  status: "m2_1_completed"
   phase: "m2_memory_os"
-  objective: "m2_1_memory_api_episodic_trace"
-  next_step: "implement memory_trace.py + memory_index.py + memory_api.py + tests on task/m2.1; CLI recall; report for merge"
+  objective: "m2_2_embedding_retrieval_seams"
+  next_step: "kickoff M2.2 (embedding + retrieval seams; carry FB-1 recall tier/kind); M2 proof: read file -> evidence -> memory trace -> restart -> recover"
 
 m1_1_stretch:
   status: "modules_15_17_reconciled"  # module 14 + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit (46e0d98) findings F-M15-1/F-M16-1/F-M17-1/F-M17-2 all fixed + regression tests
