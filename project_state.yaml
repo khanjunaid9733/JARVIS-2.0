@@ -33,6 +33,7 @@ status:
   effect_envelope: "implemented_merged_8f1ba9a"  # module 8: single-effect prepare/authorize/commit/verify envelope (s83/s98); zero-effects half of NAT-01; idempotency concurrency fix merged cca3d29 (module 8b)
   policy: "implemented_merged_ce0ffa1"  # module 9: deterministic policy-viability gate (s80.5) - capability/budget/risk-autonomy/privacy-trust; standalone seam (not yet wired)
   done_gate: "implemented_merged_0e4a92a"  # module 10: deterministic completion gate (s81.3) + gated memory.write path (s84.4/s127.1); full lifecycle FSM deferred as STRETCH per s134.1
+  bootstrap_cli: "implemented_merged_95d4d10"  # module 11: idempotent CoreService bootstrap + jarvis init/say/explain/replay --verify (s127.1); deterministic offline extractive recall; hatchling console script
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -83,9 +84,9 @@ nats:
 
 current_task:
   status: "ready"
-  phase: "m1_module_10"
-  objective: "implement_deterministic_done_gate_and_memory_write_path"
-  next_step: "gate_review_module_10"
+  phase: "m1_module_11"
+  objective: "implement_bootstrap_and_cli"
+  next_step: "implement_otel_spans_and_nat_invariants_suite"
 
 constraints:
   architecture_freeze: true
