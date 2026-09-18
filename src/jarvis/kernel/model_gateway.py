@@ -44,6 +44,11 @@ from typing import Any, Generic, Literal, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from ..observability import (
+    SPAN_MODEL_CALL,
+    SPAN_REGISTRY_RESOLVE,
+    NoOpObserver,
+)
 from .registry import ProviderAdapter, ProviderBinding
 
 
@@ -160,12 +165,17 @@ class ModelGateway:
         adapters: dict[str, ProviderAdapter],
         *,
         max_attempts: int = 3,
+        observer: Any | None = None,
     ) -> None:
         if max_attempts < 1:
             raise ValueError("max_attempts must be >= 1")
         self._resolver = resolver
         self._adapters = dict(adapters)
         self._max_attempts = max_attempts
+        self._observer = observer or NoOpObserver()
+
+    def _span(self, name: str, attributes: dict[str, Any] | None = None) -> Any:
+        return self._observer.span(name, attributes or {})
 
     async def generate_structured(
         self,
@@ -188,30 +198,37 @@ class ModelGateway:
             )
         contract_id, version_constraint = route
 
-        provider_id = self._resolver.resolve_provider(contract_id, version_constraint)
-        if provider_id is None:
-            return TypedFailure(
-                reason="no_provider",
-                detail=f"no registered provider for {contract_id}@{version_constraint}",
+        with self._span(
+            SPAN_REGISTRY_RESOLVE,
+            {"contract.id": contract_id, "contract.version": version_constraint},
+        ) as resolve_span:
+            provider_id = self._resolver.resolve_provider(
+                contract_id, version_constraint
             )
-        binding = self._resolver.get_provider(provider_id)
-        if binding is None:
-            return TypedFailure(
-                reason="adapter_error",
-                detail=f"resolver returned provider_id {provider_id!r} with no binding",
-            )
+            if provider_id is None:
+                return TypedFailure(
+                    reason="no_provider",
+                    detail=f"no registered provider for {contract_id}@{version_constraint}",
+                )
+            resolve_span.set_attribute("provider.id", provider_id)
+            binding = self._resolver.get_provider(provider_id)
+            if binding is None:
+                return TypedFailure(
+                    reason="adapter_error",
+                    detail=f"resolver returned provider_id {provider_id!r} with no binding",
+                )
 
-        contract_version = self._resolver.resolve_version(
-            contract_id, version_constraint
-        )
-        if contract_version is None:
-            return TypedFailure(
-                reason="no_provider",
-                detail=(
-                    f"resolver returned provider_id {provider_id!r} but no "
-                    f"matching version for {contract_id}@{version_constraint}"
-                ),
+            contract_version = self._resolver.resolve_version(
+                contract_id, version_constraint
             )
+            if contract_version is None:
+                return TypedFailure(
+                    reason="no_provider",
+                    detail=(
+                        f"resolver returned provider_id {provider_id!r} but no "
+                        f"matching version for {contract_id}@{version_constraint}"
+                    ),
+                )
 
         adapter, active_provider_id = self._select_adapter(binding)
         if adapter is None:
@@ -239,20 +256,29 @@ class ModelGateway:
                 "task_id": task_id,
                 "feedback": list(feedback),
             }
-            try:
-                raw = await adapter.invoke(contract_id, contract_version, args)
-            except ProviderTransportError as exc:
-                return TypedFailure(
-                    reason="transport_error",
-                    detail=str(exc),
-                    attempts=attempt,
-                )
-            except Exception as exc:  # adapter contract violation
-                return TypedFailure(
-                    reason="adapter_error",
-                    detail=f"{type(exc).__name__}: {exc}",
-                    attempts=attempt,
-                )
+            with self._span(
+                SPAN_MODEL_CALL,
+                {
+                    "model.name": active_provider_id,
+                    "contract.id": contract_id,
+                    "contract.version": contract_version,
+                    "prompt.version": resolve_schema_id,
+                },
+            ):
+                try:
+                    raw = await adapter.invoke(contract_id, contract_version, args)
+                except ProviderTransportError as exc:
+                    return TypedFailure(
+                        reason="transport_error",
+                        detail=str(exc),
+                        attempts=attempt,
+                    )
+                except Exception as exc:  # adapter contract violation
+                    return TypedFailure(
+                        reason="adapter_error",
+                        detail=f"{type(exc).__name__}: {exc}",
+                        attempts=attempt,
+                    )
 
             try:
                 value = schema.model_validate(raw)

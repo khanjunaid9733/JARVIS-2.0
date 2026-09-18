@@ -30,6 +30,7 @@ from .kernel.registry import (
     CapabilityRegistry,
     ProviderBinding,
 )
+from .observability import configure_otel
 
 PROVIDER_ADDED = "capability.provider_added"
 SERVICE_STARTED = "system.service_started"
@@ -50,9 +51,12 @@ def new_pairing_code() -> str:
 class CoreService:
     """Loads (or creates) creator identity, event log, projections, registry."""
 
-    def __init__(self, home: Path | str | None = None) -> None:
+    def __init__(
+        self, home: Path | str | None = None, *, observer: object | None = None
+    ) -> None:
         self.home = Path(home).expanduser() if home is not None else default_home()
         self.log_path = self.home / "log.db"
+        self._observer = observer
         self.identity: CreatorIdentity | None = None
         self.log: EventLog | None = None
         self.registry: CapabilityRegistry | None = None
@@ -61,7 +65,8 @@ class CoreService:
     def start(self) -> "CoreService":
         self.home.mkdir(parents=True, exist_ok=True)
         self.identity = CreatorIdentity.create(self.home / "keys")
-        self.log = EventLog(db_path=self.log_path)
+        observer = self._observer or configure_otel()
+        self.log = EventLog(db_path=self.log_path, observer=observer)
         self._projection = MemoryProjection.rebuild(self.log)
         if self._already_seeded():
             self.registry = self._registry_from_projection(self._projection)
