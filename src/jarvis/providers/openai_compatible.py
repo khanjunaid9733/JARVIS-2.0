@@ -78,6 +78,7 @@ class OpenAICompatibleAdapter:
         schema_json = args.get("schema_json")
         schema_id = args.get("schema_id", "default")
         feedback = args.get("feedback") or []
+        input_text = args.get("input_text")
         if not isinstance(schema_json, dict):
             raise ProviderTransportError(
                 f"adapter requires args['schema_json'] (got {type(schema_json).__name__})"
@@ -87,11 +88,19 @@ class OpenAICompatibleAdapter:
                 f"adapter does not support contract {contract_id!r}"
             )
 
+        # Additive M1.1 (module 15) seam: when the caller supplies free-form
+        # task input, it becomes the user message. When absent, the module-6
+        # behavior is byte-identical (schema-only conformance prompt).
+        user_content = (
+            input_text
+            if isinstance(input_text, str) and input_text.strip()
+            else "Emit exactly one JSON object."
+        )
         payload = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": self._build_system_prompt(schema_id, schema_json, feedback)},
-                {"role": "user", "content": "Emit exactly one JSON object."},
+                {"role": "user", "content": user_content},
             ],
             "temperature": 0.0,
             "response_format": {"type": "json_object"},

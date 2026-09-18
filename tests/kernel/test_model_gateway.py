@@ -540,3 +540,19 @@ async def test_f6_schema_sha256_binds_label_to_schema():
     assert fake.invoked_args[0]["schema_sha256"] != fake.invoked_args[1]["schema_sha256"]
     assert out1.schema_sha256 == fake.invoked_args[0]["schema_sha256"]
     assert out2.schema_sha256 == fake.invoked_args[1]["schema_sha256"]
+
+
+async def test_input_text_forwarded_only_when_provided():
+    """Additive M1.1 (module 15) seam: free-form input reaches the adapter,
+    and existing callers' args stay byte-identical when it is omitted."""
+    registry = CapabilityRegistry.seed_m1_defaults()
+    fake = FakeModelAdapter([{"text": "ok"}, {"text": "ok"}])
+    gateway = ModelGateway(resolver=registry, adapters={"model.adapter": fake})
+
+    await gateway.generate_structured(RoleContract.SCHEMA_CONSTRAINED, Note)
+    await gateway.generate_structured(
+        RoleContract.SCHEMA_CONSTRAINED, Note, input_text="Question: hi"
+    )
+
+    assert "input_text" not in fake.invoked_args[0]
+    assert fake.invoked_args[1]["input_text"] == "Question: hi"

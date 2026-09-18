@@ -196,6 +196,7 @@ class ModelGateway:
         schema_id: str | None = None,
         intent_id: str | None = None,
         task_id: str | None = None,
+        input_text: str | None = None,
     ) -> ValidatedOutput | TypedFailure:
         route = M1_ROLE_CONTRACTS.get(role_contract)
         if route is None:
@@ -279,6 +280,11 @@ class ModelGateway:
                     "task_id": task_id,
                     "feedback": list(feedback),
                 }
+                if input_text is not None:
+                    # Additive M1.1 (module 15) seam: free-form task input for
+                    # content-producing roles. Omitted when None so existing
+                    # module-6 callers pass byte-identical args (M1 invariant).
+                    args["input_text"] = input_text
                 with self._span(
                     SPAN_MODEL_CALL,
                     {

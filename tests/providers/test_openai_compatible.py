@@ -162,6 +162,51 @@ async def test_invoke_rejects_missing_schema_json(env):
         await adapter.invoke("model.generate_structured", "1.0.0", {})
 
 
+async def test_invoke_input_text_becomes_user_message(env):
+    """Additive M1.1 (module 15): free-form task input is sent as the user
+    message so the model is actually grounded in the question."""
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return _chat_response(json.dumps({"answer": "umbrella"}))
+
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(handler))
+    result = await adapter.invoke(
+        "model.generate_structured",
+        "1.0.0",
+        {
+            "schema_id": "jarvis.answer.v1",
+            "schema_json": {"type": "object"},
+            "input_text": "Question: what is the safe word?",
+        },
+    )
+
+    assert result == {"answer": "umbrella"}
+    assert captured["messages"][1] == {
+        "role": "user",
+        "content": "Question: what is the safe word?",
+    }
+
+
+async def test_invoke_without_input_text_uses_schema_conformance_prompt(env):
+    """No input_text → byte-identical module-6 user message (M1 invariant)."""
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return _chat_response(json.dumps({"text": "ok"}))
+
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(handler))
+    await adapter.invoke(
+        "model.generate_structured",
+        "1.0.0",
+        {"schema_id": "note", "schema_json": {"type": "object"}},
+    )
+
+    assert captured["messages"][1]["content"] == "Emit exactly one JSON object."
+
+
 # ---------------------------------------------------------------------------
 # health_check
 # ---------------------------------------------------------------------------
