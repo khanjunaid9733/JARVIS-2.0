@@ -22,7 +22,7 @@ status:
   milestone: "m0_completed_m1_readiness_patched"
   m0_audit: "completed_verdict_m1_buildable_after_setup"
   m1_readiness_patch: "applied_freeze_commit_pending"
-  m1_kernel: "in_progress_creator_intent_registry_done"
+  m1_kernel: "must_tier_complete_pending_gate_review"
   event_log: "implemented_merged_d5d5567"
   creator_identity: "implemented_merged_9b3955b"
   intent_abi: "implemented_merged_81ceb23"  # module 3 (intent ABI + static validation), merged into main
@@ -34,6 +34,8 @@ status:
   policy: "implemented_merged_ce0ffa1"  # module 9: deterministic policy-viability gate (s80.5) - capability/budget/risk-autonomy/privacy-trust; standalone seam (not yet wired)
   done_gate: "implemented_merged_0e4a92a"  # module 10: deterministic completion gate (s81.3) + gated memory.write path (s84.4/s127.1); full lifecycle FSM deferred as STRETCH per s134.1
   bootstrap_cli: "implemented_merged_95d4d10"  # module 11: idempotent CoreService bootstrap + jarvis init/say/explain/replay --verify (s127.1); deterministic offline extractive recall; hatchling console script
+  observability: "implemented_merged_a87e5ca"  # module 12: jarvis.* OpenTelemetry spans (s110.1); additive optional observer on EventLog/PolicyEngine/ModelGateway; opentelemetry-sdk dependency
+  m1_acceptance: "implemented_merged_e9e2e10"  # module 13: NAT-01..05 end-to-end + s112 invariant suite (tests/acceptance/test_m1_acceptance.py)
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -63,8 +65,8 @@ gates:
 nats:
   nat_01:
     bind: "capability registry + intent ABI (constitution 6/11)"
-    status: "partial"
-    note: "deterministic half implemented (test_nat_01_proposal_with_ungranted_capability_is_rejected: ungranted capability -> ValidationFailure, no Manifest); zero-effects half implemented in module 8 (test_capability_outside_manifest_refused_zero_effects: authorize gate refuses, adapter invoked zero times). End-to-end NAT-01 acceptance remains bound to the s127.1 smoke test (module 13)"
+    status: "implemented"
+    note: "both halves now demonstrated end-to-end in tests/acceptance/test_m1_acceptance.py: ungranted capability -> ValidationFailure, no Manifest; effect outside manifest -> EffectFailure(refused) with adapter.calls == 0"
   nat_02:
     bind: "creator identity + capability registry authority (constitution 5)"
     status: "partial"
@@ -82,11 +84,20 @@ nats:
     status: "implemented"
     note: "deterministic done-gate implemented in kernel/done_gate.py (module 10): CompletionGate.declare_completion is the only completion path and emits task.completed ONLY on a passing gate decision; failed evidence emits task.completion_refused, never a completion event (tests test_nat_05_completion_without_evidence_is_refused / _partial_evidence_still_refused). Full mission-lifecycle FSM is STRETCH (M1.1, s134.1) and not required for this NAT; the agent-runtime half is simulated by direct calls (no agent runtime in M1)"
 
+m1_definition_of_done:
+  s134_1_must: "complete"  # event store, creator identity, intent ABI, registry, adapter iface, model gateway, generate_structured, memory projection, CLI init/say/explain, replay --verify, OTel jarvis.* spans, 5 NATs
+  s112_invariants: "m1_subset_green; deferred: budget accounting (M2), quarantine/cancellation/circuit-breakers (M3), secret-scanning (M2)"
+  s127_1_smoke: "observable_offline; full model-backed explain rendering is STRETCH (M1.1)"
+  disclosed_deviations:
+    - "model backend is remote OpenAI-compatible (Groq) per ADR-010, not a local Ollama adapter as s134.1 literally names"
+    - "jarvis say question path is deterministic/extractive (no model call), so confidence is a lexical score, not a model probability"
+    - "full mission-lifecycle FSM and full explain cause-chain rendering are STRETCH (M1.1) per s134.1"
+
 current_task:
-  status: "ready"
-  phase: "m1_module_11"
-  objective: "implement_bootstrap_and_cli"
-  next_step: "implement_otel_spans_and_nat_invariants_suite"
+  status: "ready_for_gate_review"
+  phase: "m1_must_complete"
+  objective: "m1_must_tier_and_acceptance_suite_complete"
+  next_step: "creator_and_freebuff_gate_review_of_m1"
 
 constraints:
   architecture_freeze: true
