@@ -1,0 +1,85 @@
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 10822c3..a15995d 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -192,3 +192,18 @@ These decisions are binding across all platforms and engineering agents. Changes
+ * **Consequences:**
+   - M1 is not complete if the smoke test passes but any NAT fails.
+   - Each NAT is a named pytest target in the M1 test suite, traceable to a constitution clause.
++
++---
++
++## ADR-010: LiteLLM Routing Deferred Until a Second Model Provider Route Exists (amends §131.11)
++
++* **Status:** `ACCEPTED`
++* **Date:** 2026-09-18
++* **Context:**
++  Spec §131.11 (MASTER_BUILD_SPEC.md:5886) states: "M1 decision: LiteLLM is the *routing implementation* behind the Model Gateway interface." Module 6 shipped a direct JARVIS-owned OpenAI-compatible adapter (`jarvis.providers.openai_compatible`) instead, disclosed only in its module docstring — a silent divergence flagged by the Freebuff module-6 red-team review (finding F7). ADR-001 is intact either way: the kernel imports no provider client; the adapter implements the `ProviderAdapter` Protocol.
++* **Decision:**
++  For M1, §131.11 is amended: the routing implementation behind the Model Gateway is the direct OpenAI-compatible adapter. LiteLLM is adopted at the moment a second provider route exists (second provider, multi-provider failover, or cross-provider budget routing) — whichever comes first — at which point it replaces the direct adapter behind the unchanged `ProviderAdapter` Protocol. Read §131.11 together with this ADR; the section's M3 revisit clause is unchanged.
++* **Consequences:**
++  - No kernel changes are required when LiteLLM lands (substitution seam holds by construction).
++  - The implementation no longer diverges from a decision "silently": the divergence is recorded, bounded, and has an explicit trigger.
++  - The provider-translation benefits §131.11 cites (key handling, retry) are deferred with it; the direct adapter must therefore keep transport failures mapped to `ProviderTransportError`.
+diff --git a/pyproject.toml b/pyproject.toml
+index c8c63b4..77f9eda 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -10,6 +10,12 @@ dependencies = [
+     "anyio>=4.0,<5",
+ ]
+ 
++[dependency-groups]
++# Red-team finding F8: pytest was never declared, so `uv run pytest`
++# silently resolved the system PATH pytest under Python 3.11.9 — below the
++# ADR-008 pin floor. Declaring it pins the whole suite to the project venv.
++dev = ["pytest>=9,<10"]
++
+ [tool.pytest.ini_options]
+ pythonpath = ["src"]
+ testpaths = ["tests"]
+diff --git a/tests/conftest.py b/tests/conftest.py
+index 6c830a0..03335d2 100644
+--- a/tests/conftest.py
++++ b/tests/conftest.py
+@@ -12,9 +12,23 @@ Pin the backend to ``asyncio`` so the async suite is deterministic across
+ environments and requires no ``trio`` install.
+ """
+ 
++import sys
++
+ import pytest
+ 
+ 
++# Red-team finding F8: declare a hard interpreter gate, not a convention.
++# `requires-python = ">=3.12,<3.14"` (ADR-008) constrains *packaging*, but
++# pytest installed outside the venv ignores it. Fail fast with the remedy.
++if not (3, 12) <= sys.version_info[:2] < (3, 14):
++    pytest.exit(
++        f"FATAL: pytest is running under Python {sys.version.split()[0]}, "
++        "outside requires-python '>=3.12,<3.14' (ADR-008). Run the suite "
++        "through the project venv: 'uv sync' then 'uv run python -m pytest'.",
++        returncode=3,
++    )
++
++
+ @pytest.fixture
+ def anyio_backend():
+     return "asyncio"
+diff --git a/tests/providers/test_openai_compatible.py b/tests/providers/test_openai_compatible.py
+index 6de304c..599d19c 100644
+--- a/tests/providers/test_openai_compatible.py
++++ b/tests/providers/test_openai_compatible.py
+@@ -12,7 +12,11 @@ from jarvis.providers.openai_compatible import OpenAICompatibleAdapter
+ 
+ pytestmark = pytest.mark.anyio
+ 
+-API_KEY = "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"
++# Sentinel, not a credential. A real-format Groq key was committed here
++# (red-team finding F1) and has been REDACTED in the working tree. If it was
++# ever live it must be rotated at the provider; git history is untouched per
++# AGENTS.md rule 10.
++API_KEY = "gsk_REDACTED_REVIEW_SENTINEL_0000"
+ BASE_URL = "https://api.groq.com/openai/v1"
+ 
+ 
