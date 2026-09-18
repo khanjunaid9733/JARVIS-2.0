@@ -4,7 +4,7 @@ project:
   full_name: "Just A Rather Very Intelligent System"
   workspace: "F:/JARVIS2.0"
   type: "persistent_cognitive_operating_system"
-  updated_at: "2026-09-18T13:11:24Z"
+  updated_at: "2026-09-18T14:27:06Z"
 
 spec:
   version: "1.0.0-freeze"
@@ -30,12 +30,13 @@ status:
   registry: "implemented_merged_03b8f3c"  # authoritative module-4 spec: in-memory CapabilityRegistry + ProviderAdapter Protocol (interface), NAT-02 deterministic half
   registry_events: "implemented_merged_5127753"  # Freebuff F5: optional capability.provider_added / provider_revoked writer (log=None preserves in-memory-only)
   memory_projection: "implemented_merged_16afde0"  # module 7: deterministic projection state + NAT-03 state digest (s134.1)
-  effect_envelope: "implemented_merged_8f1ba9a"  # module 8: single-effect prepare/authorize/commit/verify envelope (s83/s98); zero-effects half of NAT-01; idempotency concurrency fix merged cca3d29 (module 8b)
+  effect_envelope: "implemented_merged_8f1ba9a"  # module 8: single-effect prepare/authorize/commit/verify envelope (s83/s98); zero-effects half of NAT-01; idempotency concurrency fix merged cca3d29 (module 8b). Post-review additive seam (module 14, b41509b): optional mission_id stamped on emitted effect.* events; default None = prior behavior byte-identical
   policy: "implemented_merged_ce0ffa1"  # module 9: deterministic policy-viability gate (s80.5) - capability/budget/risk-autonomy/privacy-trust; standalone seam (not yet wired)
   done_gate: "implemented_merged_0e4a92a"  # module 10: deterministic completion gate (s81.3) + gated memory.write path (s84.4/s127.1); full lifecycle FSM deferred as STRETCH per s134.1
   bootstrap_cli: "implemented_merged_95d4d10"  # module 11: idempotent CoreService bootstrap + jarvis init/say/explain/replay --verify (s127.1); deterministic offline extractive recall; hatchling console script
   observability: "implemented_merged_a87e5ca"  # module 12: jarvis.* OpenTelemetry spans (s110.1); additive optional observer on EventLog/PolicyEngine/ModelGateway; opentelemetry-sdk dependency
   m1_acceptance: "implemented_merged_e9e2e10"  # module 13: NAT-01..05 end-to-end + s112 invariant suite (tests/acceptance/test_m1_acceptance.py)
+  mission_lifecycle: "implemented_merged_b41509b"  # module 14 (STRETCH M1.1, s134.1): deterministic mission-lifecycle FSM (pending -> executing -> completed|refused|compensated) as a pure fold over the mission stream slice; DATA transition table; lifecycle.* audit events on stream 'mission'; idempotent advance(); NAT-03-style state digest; NAT-05 (consumes task.completed, never appends it); build_effect_engine threads observer + mission_id (F-E15 + F-M14-1). Antigravity adversarial pass reconciled @ f31f87f (F-M14-1..6: 5 fixed, 1 documented). Suite 267 passed
   m6_gate_carryover: "implemented_merged_814d8bd"  # pre-gate carry-over from the Module-6 red-team queue: F8 (pyproject [dependency-groups] dev pytest + conftest interpreter gate rc=3), F5 (strict _constraint_matches: exact-on-0.x, prerelease/padding rejected, _NUMERIC_VERSION), F6 (schema_sha256 bound to schema_id on adapter args + ValidatedOutput), F14 (runtime failover to fallback_provider_id on ProviderTransportError), F3/F13 (resolve_version_for_provider -> contract_version tracks the ACTIVE provider). F2/F10 already applied pre-03622e7. 231 passed (+10 regression tests)
   m1_gate_review: "findings_reconciled_merged_1a1311d"  # Freebuff M1 report (8 findings, no CRITICAL) reconciled + merged to main; suite 243 passed
   m1_gate_review_findings:
@@ -48,7 +49,7 @@ status:
     F-F17: "fixed_merged_1a1311d"  # LOW: noop-observer test strengthened (round-trip + no spans); NAT-01 pins EffectFailure.phase
     F-G20: "documented_merged_1a1311d"  # LOW: NAT-03 docstring now states same-log re-replay guarantee vs program re-run
   m1_signoff: "creator_signed_off_2026-09-18"  # F-C9 ratified as-is; all M1 gate items closed (see m1_gate_review_findings); MUST-tier complete + dual-verified (Antigravity df72c4a, Freebuff red-team reconciled 1a1311d)
-  m1_e15_residual: "deferred_disclosed_to_m1_1_module14"  # F-E15 seam is fixed + tested; the jarvis CLI constructs no EffectEnvelopeEngine today, so "no effect spans on a default run" is a no-consumer situation, not a bug; orchestration (module 14) MUST pass service.observer into any engine it builds
+  m1_e15_residual: "consumed_by_module_14_b41509b"  # F-E15 seam was fixed + tested at M1 gate; module 14 now actually constructs EffectEnvelopeEngine(s) via MissionLifecycleOwner.build_effect_engine and threads service.observer + mission_id — the "no consumer" situation is closed (jarvis CLI still constructs none today; that is orchestration-dependent)
   m1_gate_review_prompt: "docs/M1_REDTEAM_PROMPT_FB.md"  # paste-ready dispatch prompt for Freebuff (frozen target df72c4a); worktree kept pristine so reviewer preconditions hold
   m1_gate_review_predecessor: "superseded"  # earlier request docs/M1_REDTEAM_REQUEST.md targeted main @ 814d8bd in worktree F:\JARVIS-rt-m1 (branch review/m1-gate @ a6a16aa); superseded by the df72c4a freeze (M6 carry-over + s112 fix now in scope)
   m1_must_tier_verification: "antigravity_verified_cross_environment_confirmed_f8d8a77"  # 2026-09-18: independent read-only audit of all 12 s134.1 MUST items + NAT-01..05 + s112 subset on main @ f8d8a77; 231 passed; verdict CROSS_ENVIRONMENT_CONFIRMED: M1_MUST_TIER_COMPLETE. Gate remains open pending Freebuff red-team + creator sign-off
@@ -110,20 +111,24 @@ m1_definition_of_done:
     - "full mission-lifecycle FSM and full explain cause-chain rendering are STRETCH (M1.1) per s134.1"
 
 current_task:
-  status: "m1_signed_off"
-  phase: "m1_gate_closed_signoff_recorded"
-  objective: "m1_must_tier_and_acceptance_suite_complete"
-  next_step: "push main to origin (blocked by GitHub branch rules); then decide M1.1 STRETCH scope (entry conditions + module 14 kickoff drafted at docs/MODULE14_KICKOFF.md)"
+  status: "m1_1_module14_complete"
+  phase: "m1_1_stretch_module_14_merged"
+  objective: "module_14_mission_lifecycle_fsm_implemented"
+  next_step: "decide remaining M1.1 STRETCH scope (full explain cause-chain rendering, model-backed say/explain, budget display); push main to origin remains blocked by GitHub branch rules"
 
 m1_1_stretch:
-  status: "not_started"
+  status: "module14_open; remaining_items_pending"  # module 14 (mission-lifecycle FSM) DONE; explain/say/budget items not_started
   entry_conditions:
     - "M1 sign-off recorded (DONE 2026-09-18)"
     - "model backend reachable: ADR-010 remote OpenAI-compatible (Groq) endpoint configured with a key"
-    - "main pushed to origin / main branch-protection resolved"
+    - "main pushed to origin / main branch-protection resolved (STILL BLOCKED)"
     - "deterministic kernel invariant to M1.1 work (additive modules only; no src/ behavior changes to modules 1-13)"
-  scope_items: "spec s134.1 STRETCH (M1.1): full mission-lifecycle FSM (module 14), full explain cause-chain rendering, model-backed say/explain rendering, budget display; non-goal: M2 memory OS, M3 missions, M4 multimodal, M5 robotics"
+  scope_items: "spec s134.1 STRETCH (M1.1): [DONE] full mission-lifecycle FSM (module 14, b41509b); [PENDING] full explain cause-chain rendering, model-backed say/explain rendering, budget display; non-goal: M2 memory OS, M3 missions, M4 multimodal, M5 robotics"
   kickoff: "docs/MODULE14_KICKOFF.md"
+  module14:
+    merged: "b41509b"
+    reconciled_against: "antigravity_adversarial_pass_2026-09-18"  # F-M14-1..6; 5 fixed @ f31f87f, F-M14-6 accepted+documented (single-writer advance() contract); see docs/MODULE14_IMPLEMENTATION.md §7
+    rejection: "none"
 
 constraints:
   architecture_freeze: true
