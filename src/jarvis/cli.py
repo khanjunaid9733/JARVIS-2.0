@@ -282,7 +282,8 @@ def _cmd_recall(service: CoreService, args: argparse.Namespace) -> int:
         print("no relevant memory")
         return 0
     for hit in hits:
-        print(f"{hit.event_id}  {hit.score:.2f}  [{hit.source}]  {hit.content}")
+        content = " ".join(hit.content.split())
+        print(f"{hit.event_id}  {hit.score:.2f}  [{hit.source}]  {content}")
     return 0
 
 

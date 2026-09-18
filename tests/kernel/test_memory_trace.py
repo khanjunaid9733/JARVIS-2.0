@@ -109,3 +109,29 @@ def test_repeated_traces_append_in_order(tmp_path):
     events = log.replay()
     assert [event.payload["content"] for event in events] == ["first", "second"]
     assert [event.stream_seq for event in events] == [1, 2]
+
+
+# ---------------------------------------------------------------------------
+# Antigravity M2.1 audit reconciliation (F-M2.1-1 / F-M2.1-2)
+# ---------------------------------------------------------------------------
+
+def test_trace_stamps_mission_id(tmp_path):
+    """F-M2.1-1: traces recorded during a mission carry the mission_id."""
+    log = _log(tmp_path)
+    MemoryTraceWriter(log).record_episodic(
+        content="evidence read during mission", source="agent.run", mission_id="M-42"
+    )
+    trace = log.replay()[0]
+    assert trace.mission_id == "M-42"
+
+
+def test_non_numeric_confidence_is_rejected_typed(tmp_path):
+    """F-M2.1-2: non-numeric confidence returns a typed rejection, no raise."""
+    log = _log(tmp_path)
+    result = MemoryTraceWriter(log).record_episodic(
+        content="bad confidence", source="s", confidence="high"
+    )
+    assert result.status == "rejected"
+    assert result.event_id is None
+    assert "confidence_valid" in result.reason  # type: ignore[union-attr]
+    assert log.replay() == []

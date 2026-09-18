@@ -46,7 +46,8 @@ class TraceWriteResult(BaseModel):
     status: Literal["recorded", "rejected"]
     reason: str | None = None
     event_id: str | None = None
-    gate: GateDecision
+    correlation_id: str | None = None
+    gate: GateDecision | None = None
 
 
 class MemoryTraceWriter:
@@ -72,13 +73,36 @@ class MemoryTraceWriter:
         *,
         content: str,
         source: str,
-        evidence: list[str] | tuple[str, ...] | None = None,
-        confidence: float = 1.0,
+        evidence: list[str] | tuple[str, ...] | str | None = None,
+        confidence: float | str = 1.0,
         principal_id: str | None = None,
         correlation_id: str | None = None,
+        mission_id: str | None = None,
     ) -> TraceWriteResult:
-        confidence = min(max(float(confidence), 0.0), 1.0)
-        evidence = [str(ref) for ref in (evidence or [])]
+        # F-M2.1-2: clamp only true numerics; non-numeric (or bool) input is
+        # left verbatim so DoneGate's confidence_valid check rejects it as a
+        # typed TraceWriteResult instead of raising on float(confidence).
+        if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
+            confidence = min(max(float(confidence), 0.0), 1.0)
+        # Freebuff A1/A2: bare str/bytes is ONE reference (never char-split);
+        # a non-sequence is a typed rejection, not a TypeError.
+        if evidence is None:
+            refs: list[str] = []
+        elif isinstance(evidence, (str, bytes)):
+            refs = [str(evidence)]
+        elif isinstance(evidence, (list, tuple)):
+            refs = [str(ref) for ref in evidence]
+        else:
+            return TraceWriteResult(
+                status="rejected",
+                reason=(
+                    "trace record rejected: evidence must be a sequence of "
+                    f"references, got {type(evidence).__name__}"
+                ),
+                event_id=None,
+                correlation_id=None,
+                gate=None,
+            )
 
         record = {
             "content": content,
@@ -94,24 +118,27 @@ class MemoryTraceWriter:
                 status="rejected",
                 reason=f"trace record rejected: {failed}",
                 event_id=None,
+                correlation_id=None,
                 gate=decision,
             )
 
         event_id = new_ulid()
+        effective_correlation = correlation_id or event_id
         self._log.append(
             Event(
                 event_id=event_id,
                 stream_id=MEMORY_STREAM_ID,
                 event_type=MEMORY_TRACE_RECORDED,
                 principal_id=principal_id or self._principal_id,
-                cause_event_id=evidence[-1] if evidence else None,
-                correlation_id=correlation_id or event_id,
+                mission_id=mission_id,
+                cause_event_id=refs[-1] if refs else None,
+                correlation_id=effective_correlation,
                 payload={
                     "kind": TRACE_KIND_EPISODIC,
                     "content": content,
                     "source": source,
                     "confidence": confidence,
-                    "evidence": evidence,
+                    "evidence": refs,
                 },
             )
         )
@@ -119,5 +146,6 @@ class MemoryTraceWriter:
             status="recorded",
             reason=None,
             event_id=event_id,
+            correlation_id=effective_correlation,
             gate=decision,
         )

@@ -2,8 +2,11 @@ from __future__ import annotations
 
 """M2.1 Memory API facade tests (spec §M2)."""
 
-from jarvis.kernel.event_log import EventLog
+import pytest
+
+from jarvis.kernel.event_log import Event, EventLog
 from jarvis.kernel.memory_api import Memory
+from jarvis.kernel.memory_index import MemoryIndex
 from jarvis.kernel.memory_projection import MemoryProjection
 from jarvis.kernel.memory_query import recall as module11_recall
 from jarvis.kernel.memory_trace import MemoryTraceWriter
@@ -98,8 +101,41 @@ def test_projection_fallback_recall_equals_module_11_lexical(tmp_path):
 
 
 def test_constructor_requires_an_input(tmp_path):
-    try:
+    with pytest.raises(ValueError):
         Memory()
-        raise AssertionError("Memory() with no input must raise")
-    except ValueError:
-        pass
+
+
+# ---------------------------------------------------------------------------
+# Antigravity M2.1 audit reconciliation (F-M2.1-3 / F-M2.1-4)
+# ---------------------------------------------------------------------------
+
+def test_get_returns_empty_memory_payload_not_none(tmp_path):
+    """F-M2.1-3: an empty committed payload must still resolve via get()."""
+    log = _log(tmp_path)
+    event_id = log.append(
+        Event(
+            stream_id="memory",
+            event_type="memory.write.committed",
+            principal_id="creator",
+            payload={},
+        )
+    )
+    assert Memory(log=log).get(event_id) == {}
+
+
+def test_backend_slots_always_materialized(tmp_path):
+    """F-M2.1-4: both _index and _projection slots exist on every Memory."""
+    log = _log(tmp_path)
+    MemoryWriter(log).remember(content="alpha", source="s")
+
+    by_index = Memory(index=MemoryIndex.rebuild(log))
+    assert by_index.index is not None
+    assert by_index.recall("alpha")
+
+    by_log = Memory(log=log)
+    assert by_log.index is not None
+    assert by_log.recall("alpha")
+
+    by_projection = Memory(projection=MemoryProjection.rebuild(log))
+    assert by_projection.index is None
+    assert by_projection.recall("alpha")

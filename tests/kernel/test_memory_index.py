@@ -2,7 +2,9 @@ from __future__ import annotations
 
 """M2.1 MemoryIndex projection tests (spec §84.3 tier 1 / NAT-03)."""
 
-from jarvis.kernel.event_log import EventLog
+import pytest
+
+from jarvis.kernel.event_log import EventIntegrityError, EventLog
 from jarvis.kernel.memory_index import MemoryIndex
 from jarvis.kernel.memory_trace import MemoryTraceWriter
 from jarvis.kernel.memory_write import MemoryWriter
@@ -70,8 +72,5 @@ def test_tamper_halts_rebuild_like_module_7(tmp_path):
             "UPDATE events SET payload_json = ? WHERE event_type = 'memory.write.committed'",
             (json.dumps({"content": "tampered"}),),
         )
-    try:
+    with pytest.raises(EventIntegrityError):
         MemoryIndex.rebuild(log)
-        raise AssertionError("rebuild must halt on tampering (NAT-04)")
-    except Exception as exc:
-        assert "mismatch" in str(exc)

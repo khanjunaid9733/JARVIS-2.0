@@ -44,10 +44,11 @@ class Memory:
         index: MemoryIndex | None = None,
         projection: MemoryProjection | None = None,
     ) -> None:
+        self._index: MemoryIndex | None = None
+        self._projection: MemoryProjection | None = None
         if index is not None:
             self._index = index
         elif projection is not None:
-            self._index = None
             self._projection = projection
         elif log is not None:
             self._index = MemoryIndex.rebuild(log)
@@ -64,11 +65,14 @@ class Memory:
         return dict(self._projection.memories)  # type: ignore[union-attr]
 
     def recall(self, query: str, *, limit: int = 3) -> list[RecalledMemory]:
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+            raise ValueError("limit must be a positive integer")
         return _index_recall(_CombinedView(memories=self._combined()), query, limit=limit)
 
     def get(self, event_id: str) -> dict[str, Any] | None:
         if self._index is not None:
-            return self._index.memories.get(event_id) or self._index.traces.get(event_id)
+            hit = self._index.memories.get(event_id)
+            return hit if hit is not None else self._index.traces.get(event_id)
         return self._projection.memories.get(event_id)  # type: ignore[union-attr]
 
     def digest(self) -> str:
