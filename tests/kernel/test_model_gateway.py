@@ -397,3 +397,146 @@ def test_m1_routes_only_schema_constrained():
         "model.generate_structured",
         "^1.0",
     )
+
+
+# ---------------------------------------------------------------------------
+# M6 carry-over: F3 version provenance, F6 schema binding, F14 runtime failover
+# ---------------------------------------------------------------------------
+
+def _carry_meta(provider_id: str, fallback: str | None = None) -> ProviderMeta:
+    return ProviderMeta(
+        provider_id=provider_id,
+        version="1.0.0",
+        license="MIT",
+        license_compatibility="approved",
+        adapter="jarvis.providers.test",
+        trust_level="trusted",
+        process_model="in_process",
+        network="none",
+        health_check="probe",
+        cve_status="checked_clean",
+        provenance_added_by="creator",
+        provenance_added_at_utc="2026-09-16T00:00:00Z",
+        provenance_reason="M6 carry-over test",
+        fallback_provider_id=fallback,
+    )
+
+
+def _carry_binding(
+    provider_id: str, version: str, fallback: str | None = None
+) -> ProviderBinding:
+    return ProviderBinding(
+        meta=_carry_meta(provider_id, fallback),
+        contracts=[
+            ContractDef(
+                contract_id="model.generate_structured",
+                version=version,
+                args_schema={"role_contract": {"type": "string", "required": True}},
+            )
+        ],
+    )
+
+
+async def test_f3_fallback_records_active_provider_contract_version():
+    registry = CapabilityRegistry()
+    registry.register_provider(
+        "creator", _carry_binding("model.primary", "1.0.0", fallback="model.backup")
+    )
+    registry.register_provider("creator", _carry_binding("model.backup", "1.2.0"))
+
+    class Backup:
+        provider_id = "model.backup"
+
+        def __init__(self):
+            self.versions = []
+
+        async def invoke(self, contract_id, version, args):
+            self.versions.append(version)
+            return {"text": "from-backup"}
+
+        def health_check(self):
+            return True
+
+    backup = Backup()
+    gateway = ModelGateway(resolver=registry, adapters={"model.backup": backup})
+    result = await gateway.generate_structured(RoleContract.SCHEMA_CONSTRAINED, Note)
+
+    assert isinstance(result, ValidatedOutput)
+    assert result.provider_id == "model.backup"
+    assert result.contract_version == "1.2.0"  # the ACTIVE provider's version, not primary's
+    assert backup.versions == ["1.2.0"]
+
+
+async def test_f14_falls_over_to_backup_on_transport_error():
+    registry = CapabilityRegistry()
+    registry.register_provider(
+        "creator", _carry_binding("model.primary", "1.0.0", fallback="model.backup")
+    )
+    registry.register_provider("creator", _carry_binding("model.backup", "1.0.0"))
+
+    class Primary:
+        provider_id = "model.primary"
+
+        async def invoke(self, contract_id, version, args):
+            raise ProviderTransportError("primary down")
+
+        def health_check(self):
+            return False
+
+    class Backup:
+        provider_id = "model.backup"
+
+        def __init__(self):
+            self.calls = 0
+
+        async def invoke(self, contract_id, version, args):
+            self.calls += 1
+            return {"text": "recovered"}
+
+        def health_check(self):
+            return True
+
+    backup = Backup()
+    gateway = ModelGateway(
+        resolver=registry,
+        adapters={"model.primary": Primary(), "model.backup": backup},
+    )
+    result = await gateway.generate_structured(RoleContract.SCHEMA_CONSTRAINED, Note)
+
+    assert isinstance(result, ValidatedOutput)
+    assert result.provider_id == "model.backup"
+    assert result.value.text == "recovered"
+    assert backup.calls == 1  # declared fallback chain engaged at runtime
+
+
+async def test_f14_no_fallback_bound_returns_transport_error():
+    registry = CapabilityRegistry.seed_m1_defaults()
+    gateway = ModelGateway(resolver=registry, adapters={"model.adapter": FailingAdapter()})
+
+    result = await gateway.generate_structured(RoleContract.SCHEMA_CONSTRAINED, Note)
+
+    assert isinstance(result, TypedFailure)
+    assert result.reason == "transport_error"
+
+
+async def test_f6_schema_sha256_binds_label_to_schema():
+    class Other(BaseModel):
+        q: str
+
+    registry = CapabilityRegistry.seed_m1_defaults()
+    fake = FakeModelAdapter([{"text": "ok"}, {"q": "ok"}])
+    gateway = ModelGateway(resolver=registry, adapters={"model.adapter": fake})
+
+    out1 = await gateway.generate_structured(
+        RoleContract.SCHEMA_CONSTRAINED, Note, schema_id="thing"
+    )
+    out2 = await gateway.generate_structured(
+        RoleContract.SCHEMA_CONSTRAINED, Other, schema_id="thing"
+    )
+
+    assert isinstance(out1, ValidatedOutput) and isinstance(out2, ValidatedOutput)
+    assert fake.invoked_args[0]["schema_id"] == "thing"
+    assert fake.invoked_args[1]["schema_id"] == "thing"
+    assert fake.invoked_args[0]["schema_sha256"] != fake.invoked_args[1]["schema_sha256"]
+    assert out1.schema_sha256 == fake.invoked_args[0]["schema_sha256"]
+    assert out2.schema_sha256 == fake.invoked_args[1]["schema_sha256"]
