@@ -4,7 +4,7 @@ project:
   full_name: "Just A Rather Very Intelligent System"
   workspace: "F:/JARVIS2.0"
   type: "persistent_cognitive_operating_system"
-  updated_at: "2026-09-18T21:10:00Z"
+  updated_at: "2026-09-18T21:40:00Z"
 
 spec:
   version: "1.0.0-freeze"
@@ -54,7 +54,9 @@ status:
   m1_gate_review_prompt: "docs/M1_REDTEAM_PROMPT_FB.md"  # paste-ready dispatch prompt for Freebuff (frozen target df72c4a); worktree kept pristine so reviewer preconditions hold
   m1_gate_review_predecessor: "superseded"  # earlier request docs/M1_REDTEAM_REQUEST.md targeted main @ 814d8bd in worktree F:\JARVIS-rt-m1 (branch review/m1-gate @ a6a16aa); superseded by the df72c4a freeze (M6 carry-over + s112 fix now in scope)
   m1_must_tier_verification: "antigravity_verified_cross_environment_confirmed_f8d8a77"  # 2026-09-18: independent read-only audit of all 12 s134.1 MUST items + NAT-01..05 + s112 subset on main @ f8d8a77; 231 passed; verdict CROSS_ENVIRONMENT_CONFIRMED: M1_MUST_TIER_COMPLETE. Gate remains open pending Freebuff red-team + creator sign-off
-  m2_memory_os: "kickoff_drafted_pending_ratification"  # M1.1 signed off 2026-09-18 @ 160a3c2; docs/M2_KICKOFF.md proposes 10 packages (memory API/episodic trace, embedding+retrieval seams, consolidation, verification, PII seam, FS effect+sandbox, intent-to-manifest compilation+DAG validation, key-based authority, budgets/rate limits+loop breaker, semantic checkpoints+recovery); M2 proof: read file -> evidence -> memory trace -> restart -> recover
+  m2_memory_os:
+  status: "m2.1_ratified_in_progress"  # 2026-09-18; creator ratified docs/M2_1_KICKOFF.md (contract A-E: trace event, deterministic writer, Memory API, MemoryIndex projection, CLI recall); M1.1 signed off 2026-09-18 @ 160a3c2; M2 proof: read file -> evidence -> memory trace -> restart -> recover
+  packages: "M2.1 memory API + episodic trace (IN PROGRESS) | M2.2 emb/retrieval seams | M2.3 consolidation | M2.4 verification | M2.5 PII seam | M2.6 FS effect + sandbox | M2.7 manifest compilation + DAG | M2.8 key authority | M2.9 budgets/rate limits | M2.10 checkpoints"  # full list in docs/M2_KICKOFF.md
   m3_missions: "not_started"
   m4_multimodal: "not_started"
   m5_robotics: "not_started"
@@ -112,10 +114,10 @@ m1_definition_of_done:
     - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)
 
 current_task:
-  status: "m1_1_frozen_signed_off"
-  phase: "m2_kickoff_drafted"
-  objective: "m2_memory_os_initialized"
-  next_step: "ratify M2 work packages (docs/M2_KICKOFF.md), then implement M2.1 memory API + episodic trace"
+  status: "m2_1_in_progress"
+  phase: "m2_memory_os"
+  objective: "m2_1_memory_api_episodic_trace"
+  next_step: "implement memory_trace.py + memory_index.py + memory_api.py + tests on task/m2.1; CLI recall; report for merge"
 
 m1_1_stretch:
   status: "modules_15_17_reconciled"  # module 14 + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit (46e0d98) findings F-M15-1/F-M16-1/F-M17-1/F-M17-2 all fixed + regression tests
