@@ -114,10 +114,10 @@ current_task:
   status: "m1_1_stretch_complete"
   phase: "m1_1_stretch_modules_15_17_merged"
   objective: "m1_1_stretch_full_explain_model_backed_say_budget_display"
-  next_step: "Antigravity adversarial review of modules 15-17, then M2 (Memory OS) kickoff or M1.1 sign-off"
+  next_step: "Big Pickle reconciliation of Antigravity M1.1 audit findings (F-M15-1, F-M16-1, F-M17-1, F-M17-2 in docs/M1_1_AUDIT.md)"
 
 m1_1_stretch:
-  status: "modules_15_17_complete; adversarial_review_pending"  # module 14 (mission-lifecycle FSM) + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged f89ad5f+b45add7; Antigravity handoff pending
+  status: "modules_15_17_audited; reconciliation_pending"  # module 14 (mission-lifecycle FSM) + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit completed (verdict M1.1_RECONCILIATION_READY @ 46e0d98)
   entry_conditions:
     - "M1 sign-off recorded (DONE 2026-09-18)"
     - "model backend reachable: ADR-010 remote OpenAI-compatible (Groq) endpoint configured with a key"
@@ -139,7 +139,7 @@ m1_1_stretch:
     implemented: "f89ad5f"
     cli: "b45add7"
     note: "explain_event pure read-only renderer (cause chain, lifecycle state/transitions, model provenance + recalled memories, policy/effect counts, budget slab, memory content); CLI full rendering keeps section 127.1 assertions stable; see docs/MODULE17_IMPLEMENTATION.md"
-  adversarial_review: "pending"  # Antigravity review of modules 15-17 (docs/M1_1_ADVERSARIAL_HANDOFF.md) not yet run
+  adversarial_review: "completed_report_docs_M1_1_AUDIT_46e0d98"  # Antigravity review of modules 15-17 completed (verdict M1.1_RECONCILIATION_READY, 4 findings)
 
 constraints:
   architecture_freeze: true
