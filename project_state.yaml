@@ -4,7 +4,7 @@ project:
   full_name: "Just A Rather Very Intelligent System"
   workspace: "F:/JARVIS2.0"
   type: "persistent_cognitive_operating_system"
-  updated_at: "2026-09-18T20:05:00Z"
+  updated_at: "2026-09-18T21:10:00Z"
 
 spec:
   version: "1.0.0-freeze"
@@ -49,11 +49,12 @@ status:
     F-F17: "fixed_merged_1a1311d"  # LOW: noop-observer test strengthened (round-trip + no spans); NAT-01 pins EffectFailure.phase
     F-G20: "documented_merged_1a1311d"  # LOW: NAT-03 docstring now states same-log re-replay guarantee vs program re-run
   m1_signoff: "creator_signed_off_2026-09-18"  # F-C9 ratified as-is; all M1 gate items closed (see m1_gate_review_findings); MUST-tier complete + dual-verified (Antigravity df72c4a, Freebuff red-team reconciled 1a1311d)
+  m1_1_signoff: "creator_signed_off_2026-09-18 @ 160a3c2"  # M1.1 STRETCH (modules 14-17) FROZEN + signed: 292 passed; module-14 pass (F-M14-1..6) + Antigravity audit (F-M15-1..F-M17-2) all reconciled; live Groq smoke verified; offline section 127.1 byte-identical; see docs/M1_1_SIGNOFF.md (residuals: manifest-DAG validation -> M2, NAT-02 key-authority -> M2, 0-token accounting until adapter usage, JARVIS_MODEL_NAME selection, env/visibility)
   m1_e15_residual: "consumed_by_module_14_b41509b"  # F-E15 seam was fixed + tested at M1 gate; module 14 now actually constructs EffectEnvelopeEngine(s) via MissionLifecycleOwner.build_effect_engine and threads service.observer + mission_id — the "no consumer" situation is closed (jarvis CLI still constructs none today; that is orchestration-dependent)
   m1_gate_review_prompt: "docs/M1_REDTEAM_PROMPT_FB.md"  # paste-ready dispatch prompt for Freebuff (frozen target df72c4a); worktree kept pristine so reviewer preconditions hold
   m1_gate_review_predecessor: "superseded"  # earlier request docs/M1_REDTEAM_REQUEST.md targeted main @ 814d8bd in worktree F:\JARVIS-rt-m1 (branch review/m1-gate @ a6a16aa); superseded by the df72c4a freeze (M6 carry-over + s112 fix now in scope)
   m1_must_tier_verification: "antigravity_verified_cross_environment_confirmed_f8d8a77"  # 2026-09-18: independent read-only audit of all 12 s134.1 MUST items + NAT-01..05 + s112 subset on main @ f8d8a77; 231 passed; verdict CROSS_ENVIRONMENT_CONFIRMED: M1_MUST_TIER_COMPLETE. Gate remains open pending Freebuff red-team + creator sign-off
-  m2_memory_os: "not_started"
+  m2_memory_os: "kickoff_drafted_pending_ratification"  # M1.1 signed off 2026-09-18 @ 160a3c2; docs/M2_KICKOFF.md proposes 10 packages (memory API/episodic trace, embedding+retrieval seams, consolidation, verification, PII seam, FS effect+sandbox, intent-to-manifest compilation+DAG validation, key-based authority, budgets/rate limits+loop breaker, semantic checkpoints+recovery); M2 proof: read file -> evidence -> memory trace -> restart -> recover
   m3_missions: "not_started"
   m4_multimodal: "not_started"
   m5_robotics: "not_started"
@@ -111,10 +112,10 @@ m1_definition_of_done:
     - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)
 
 current_task:
-  status: "m1_1_stretch_complete"
-  phase: "m1_1_stretch_modules_15_17_merged"
-  objective: "m1_1_stretch_full_explain_model_backed_say_budget_display"
-  next_step: "Big Pickle reconciliation of Antigravity M1.1 audit findings (F-M15-1, F-M16-1, F-M17-1, F-M17-2 in docs/M1_1_AUDIT.md)"
+  status: "m1_1_frozen_signed_off"
+  phase: "m2_kickoff_drafted"
+  objective: "m2_memory_os_initialized"
+  next_step: "ratify M2 work packages (docs/M2_KICKOFF.md), then implement M2.1 memory API + episodic trace"
 
 m1_1_stretch:
   status: "modules_15_17_reconciled"  # module 14 + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit (46e0d98) findings F-M15-1/F-M16-1/F-M17-1/F-M17-2 all fixed + regression tests
