@@ -52,5 +52,15 @@ counts, budget slab); CLI view in `tests/test_cli.py`
 (`test_explain_renders_full_blocks_for_memory_event`,
 `test_model_backed_say_records_question_and_explain_shows_provenance`).
 Verified live end-to-end against a real Groq-backed log (see module-15
-note §3): explain renders model name + answer path + budget slab and
-`replay --verify` stays OK. 288 passed.
+note §3). 292 passed (288 + reconcile tests).
+
+## 5. Post-audit reconciliation (Antigravity pass, 2026-09-18)
+
+| Finding | Severity | Resolution |
+| :--- | :--- | :--- |
+| F-M17-1 unbounded `while current is not None:` cause-chain walk loops forever on cyclic / self-referential `cause_event_id` (corrupt log) | MEDIUM | **Fixed** — `seen` set terminates the walk on the repeated node. `test_self_referential_and_cyclic_cause_chains_terminate` covers 1- and 2-node cycles. |
+| F-M17-2 tuple literal `()` defaults for list fields (`lifecycle_transitions`, `recalled_memories`) | LOW | **Fixed** — `Field(default_factory=list)`; fresh per-instance lists. `test_explanation_defaults_are_fresh_lists`. |
+
+## Suite
+
+292 passed (288 + reconcile tests).

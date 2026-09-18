@@ -24,7 +24,7 @@ The CLI formats the structure; this module owns the semantics.
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from .budget_ledger import BudgetLedger, StreamBudget
 from .event_log import Event, EventLog
@@ -55,9 +55,9 @@ class Explanation(BaseModel):
     stream_id: str
     chain: list[ChainLink]
     lifecycle_state: str | None = None
-    lifecycle_transitions: list[str] = ()
+    lifecycle_transitions: list[str] = Field(default_factory=list)
     model_provenance: dict[str, Any] | None = None
-    recalled_memories: list[RecalledMemory] = ()
+    recalled_memories: list[RecalledMemory] = Field(default_factory=list)
     memory_content: str | None = None
     memory_source: str | None = None
     capability_check_count: int = 0
@@ -82,7 +82,15 @@ def explain_event(
     chain: list[ChainLink] = []
     current: Event | None = target
     root_chain: list[Event] = []
+    seen: set[str] = set()
     while current is not None:
+        event_id = current.event_id
+        if event_id is not None:
+            if event_id in seen:
+                # F-M17-1: a cyclic / self-referential cause chain (corrupt
+                # log) must terminate the walk, not hang `explain`.
+                break
+            seen.add(event_id)
         root_chain.append(current)
         current = by_id.get(current.cause_event_id) if current.cause_event_id else None
     chain = [

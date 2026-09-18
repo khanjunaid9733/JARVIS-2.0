@@ -117,7 +117,7 @@ current_task:
   next_step: "Big Pickle reconciliation of Antigravity M1.1 audit findings (F-M15-1, F-M16-1, F-M17-1, F-M17-2 in docs/M1_1_AUDIT.md)"
 
 m1_1_stretch:
-  status: "modules_15_17_audited; reconciliation_pending"  # module 14 (mission-lifecycle FSM) + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit completed (verdict M1.1_RECONCILIATION_READY @ 46e0d98)
+  status: "modules_15_17_reconciled"  # module 14 + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit (46e0d98) findings F-M15-1/F-M16-1/F-M17-1/F-M17-2 all fixed + regression tests
   entry_conditions:
     - "M1 sign-off recorded (DONE 2026-09-18)"
     - "model backend reachable: ADR-010 remote OpenAI-compatible (Groq) endpoint configured with a key"
@@ -140,6 +140,11 @@ m1_1_stretch:
     cli: "b45add7"
     note: "explain_event pure read-only renderer (cause chain, lifecycle state/transitions, model provenance + recalled memories, policy/effect counts, budget slab, memory content); CLI full rendering keeps section 127.1 assertions stable; see docs/MODULE17_IMPLEMENTATION.md"
   adversarial_review: "completed_report_docs_M1_1_AUDIT_46e0d98"  # Antigravity review of modules 15-17 completed (verdict M1.1_RECONCILIATION_READY, 4 findings)
+  reconciled_findings:
+    F-M15-1: "fixed"  # MEDIUM: additive mission_id on answer_question/_record_question; question.asked stamped -> budget folds to mission slab (not session); test_mission_scoped_question_stamps_mission_id_for_budget
+    F-M16-1: "fixed"  # MEDIUM: non-numeric/negative attempts guarded via _bounded_count (no replay poison pill); test_non_numeric_attempts_do_not_break_the_fold
+    F-M17-1: "fixed"  # MEDIUM: cause-chain walk cycle-safe (seen set terminates on repeated node); test_self_referential_and_cyclic_cause_chains_terminate
+    F-M17-2: "fixed"  # LOW: Field(default_factory=list) for lifecycle_transitions/recalled_memories; test_explanation_defaults_are_fresh_lists
 
 constraints:
   architecture_freeze: true

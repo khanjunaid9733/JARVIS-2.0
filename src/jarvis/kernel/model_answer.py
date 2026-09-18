@@ -98,6 +98,7 @@ async def answer_question(
     principal_id: str = CREATOR_PRINCIPAL_ID,
     recall_limit: int = _DEFAULT_RECALL_LIMIT,
     model_name: str | None = None,
+    mission_id: str | None = None,
 ) -> ModelAnswerResult:
     """Answer a question, preferring the model-backed path when a gateway is
     available and resolving cleanly; falling back to the deterministic
@@ -161,6 +162,7 @@ async def answer_question(
             recalled_event_id=top_memory_id,
             principal_id=principal_id,
             model_name=model_name,
+            mission_id=mission_id,
         )
         return ModelAnswerResult(
             used_model=False,
@@ -191,6 +193,7 @@ async def answer_question(
         recalled_event_id=top_memory_id,
         principal_id=principal_id,
         model_name=model_name,
+        mission_id=mission_id,
     )
     return ModelAnswerResult(
         used_model=True,
@@ -220,9 +223,16 @@ def _record_question(
     recalled_event_id: str | None,
     principal_id: str,
     model_name: str | None = None,
+    mission_id: str | None = None,
 ) -> str | None:
     """Append the `question.asked` audit event. Returns its id or None when
-    no log is attached (in-memory seam, modules 6/9/14 precedent)."""
+    no log is attached (in-memory seam, modules 6/9/14 precedent).
+
+    Mission-scoped questions stamp `mission_id` on the event (F-M15-1) so the
+    budget ledger (module 16) folds the cost onto the mission's slab (§80.4)
+    instead of the session slab; `mission_id=None` keeps module-15 behavior
+    with no mission context.
+    """
     if log is None:
         return None
     payload: dict[str, Any] = {
@@ -244,6 +254,7 @@ def _record_question(
             stream_id=SESSION_STREAM_ID,
             event_type=QUESTION_ASKED,
             principal_id=principal_id,
+            mission_id=mission_id,
             cause_event_id=recalled_event_id,
             payload=payload,
         )

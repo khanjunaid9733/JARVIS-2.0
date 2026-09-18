@@ -97,7 +97,7 @@ class BudgetLedger(BaseModel):
                     slab["model_calls"] += 1
                 else:
                     slab["deterministic_fallbacks"] += 1
-                slab["attempts"] += int(event.payload.get("attempts") or 0)
+                slab["attempts"] += _bounded_count(event.payload.get("attempts"))
                 tokens = event.payload.get("tokens")
                 if isinstance(tokens, int) and tokens >= 0:
                     slab["spent_tokens"] += tokens
@@ -130,6 +130,15 @@ class BudgetLedger(BaseModel):
             allocation_tokens=None,
             first_asked_event_id=None,
         )
+
+
+def _bounded_count(raw: Any) -> int:
+    """Non-negative int payload counts only (F-M16-1): a poisoned non-numeric
+    `attempts` value must never crash the replay fold — it is ignored, so a
+    corrupt event cannot become a replay poison pill."""
+    if isinstance(raw, int) and raw >= 0:
+        return raw
+    return 0
 
 
 def _declared_allocation(payload: dict[str, Any] | None) -> int | None:

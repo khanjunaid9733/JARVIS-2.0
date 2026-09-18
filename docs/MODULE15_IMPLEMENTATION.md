@@ -80,3 +80,11 @@ test outcomes never depend on a live backend across machines.
 ## Suite
 
 288 passed (267 pre-M1.1 baseline + new module 15/16/17 + CLI + seam tests).
+
+## 6. Post-audit reconciliation (Antigravity pass, 2026-09-18)
+
+Findings from `docs/M1_1_AUDIT.md` (verdict `M1.1_RECONCILIATION_READY`):
+
+| Finding | Severity | Resolution |
+| :--- | :--- | :--- |
+| F-M15-1 `question.asked` never carried `mission_id` — mission question costs folded onto the "session" slab instead of the mission's slab (§80.4) | MEDIUM | **Fixed** — additive `mission_id: str \| None = None` on `answer_question()` / `_record_question()`; stamped on the recorded event. `mission_id=None` = prior behavior. `test_mission_scoped_question_stamps_mission_id_for_budget` pins the fold to the mission slab (session slab stays absent). |

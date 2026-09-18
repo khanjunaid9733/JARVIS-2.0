@@ -46,3 +46,9 @@ Budget behavior covered in `tests/kernel/test_budget_ledger.py`
 (empty / model+fallback / non-int token ignore / mission allocation / flat
 `budget_tokens` / per-stream grouping / sorted-stable streams) and surfaced
 in `tests/kernel/test_explain.py`. 288 passed.
+
+## Post-audit reconciliation (Antigravity pass, 2026-09-18)
+
+| Finding | Severity | Resolution |
+| :--- | :--- | :--- |
+| F-M16-1 unguarded `int(payload["attempts"] or 0)` crashed the fold on a non-numeric payload — a replay poison pill | MEDIUM | **Fixed** — dedicated `_bounded_count()` (non-negative `int` only, else 0), matching the `spent_tokens` guard. `test_non_numeric_attempts_do_not_break_the_fold` covers a string and a negative value. |

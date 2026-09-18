@@ -10,7 +10,7 @@ import pytest
 
 from jarvis.kernel.done_gate import CompletionGate
 from jarvis.kernel.event_log import Event, EventLog
-from jarvis.kernel.explain import explain_event
+from jarvis.kernel.explain import Explanation, explain_event
 from jarvis.kernel.memory_projection import MemoryProjection
 from jarvis.kernel.mission_lifecycle import (
     LIFECYCLE_COMPLETED,
@@ -74,6 +74,51 @@ def test_unknown_event_returns_none(tmp_path):
     log, _, _ = _memory_chain(tmp_path)
     assert explain_event(log, MemoryProjection.rebuild(log), "01NOSUCHULID0000000000000") is None
     log.close()
+
+
+def test_self_referential_and_cyclic_cause_chains_terminate(tmp_path):
+    """F-M17-1: a cyclic / self-referential cause chain (corrupt log) must
+    terminate the walk instead of hanging `explain`."""
+    log = _log(tmp_path)
+    log.append(
+        Event(stream_id="session", event_type="test.cycle", principal_id="creator",
+              event_id="cyc-a", cause_event_id="cyc-b", payload={})
+    )
+    log.append(
+        Event(stream_id="session", event_type="test.cycle", principal_id="creator",
+              event_id="cyc-b", cause_event_id="cyc-a", payload={})
+    )
+    projection = MemoryProjection.rebuild(log)
+
+    explanation = explain_event(log, projection, "cyc-a")
+    assert explanation is not None
+    assert [link.event_id for link in explanation.chain] == ["cyc-a", "cyc-b"], (
+        "walk must stop at the repeated node, not loop"
+    )
+    log.close()
+
+    log2 = _log(tmp_path, name="log-2.db")
+    log2.append(
+        Event(stream_id="session", event_type="test.selfcycle", principal_id="creator",
+              event_id="cyc-self", cause_event_id="cyc-self", payload={})
+    )
+    explanation2 = explain_event(log2, MemoryProjection.rebuild(log2), "cyc-self")
+    assert explanation2 is not None
+    assert explanation2.target_event_id == "cyc-self"
+    assert len(explanation2.chain) == 1
+    log2.close()
+
+
+def test_explanation_defaults_are_fresh_lists():
+    """F-M17-2: list-typed defaults come from a factory, not a shared literal."""
+    a = Explanation(target_event_id="x", event_type="e", principal_id="p",
+                    stream_id="s", chain=[])
+    b = Explanation(target_event_id="y", event_type="e", principal_id="p",
+                    stream_id="s", chain=[])
+    assert a.lifecycle_transitions == []
+    assert a.recalled_memories == []
+    assert isinstance(a.lifecycle_transitions, list)
+    assert a.lifecycle_transitions is not b.lifecycle_transitions
 
 
 def test_memory_chain_cause_order_and_common_lines(tmp_path):

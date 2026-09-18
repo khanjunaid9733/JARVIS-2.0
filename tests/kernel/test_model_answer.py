@@ -9,6 +9,7 @@ the projection + `question.asked` accounting seam are exercised end-to-end.
 
 import pytest
 
+from jarvis.kernel.budget_ledger import BudgetLedger
 from jarvis.kernel.event_log import Event, EventLog
 from jarvis.kernel.memory_projection import MemoryProjection
 from jarvis.kernel.model_answer import (
@@ -197,6 +198,37 @@ async def test_unbound_adapter_records_fallback_and_classifies_reason(tmp_path):
     assert result.fallback_reason == "adapter_error"
     asked = [e for e in log.replay() if e.event_type == QUESTION_ASKED]
     assert asked and asked[0].payload["fallback"] == "deterministic"
+
+    log.close()
+
+
+async def test_mission_scoped_question_stamps_mission_id_for_budget(tmp_path):
+    """F-M15-1: mission-scoped questions fold onto the mission slab, never the
+    session slab (§80.4)."""
+    log = _log(tmp_path)
+    memory_id = _commit_memory(log)
+    gateway = _gateway(_FakeAdapter([{"answer": "umbrella", "confidence": 0.9}]))
+
+    result = await answer_question(
+        _projection(log),
+        "what is the safe word?",
+        gateway=gateway,
+        log=log,
+        mission_id="m-1",
+    )
+
+    assert result.recorded is True
+    assert result.memory_event_id == memory_id
+
+    asked = [e for e in log.replay() if e.event_type == QUESTION_ASKED]
+    assert len(asked) == 1
+    assert asked[0].mission_id == "m-1"
+
+    ledger = BudgetLedger.rebuild(log.replay())
+    mission = ledger.stream_budget("m-1")
+    assert mission is not None
+    assert mission.model_calls == 1
+    assert ledger.stream_budget(SESSION_STREAM_ID) is None
 
     log.close()
 

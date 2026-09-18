@@ -99,6 +99,35 @@ def test_non_int_or_negative_tokens_are_not_accounted():
     assert slab.spent_tokens == 0
 
 
+def test_non_numeric_attempts_do_not_break_the_fold():
+    """F-M16-1: a poisoned non-numeric `attempts` value must not crash the
+    replay fold — it is ignored (no replay poison pill)."""
+    ledger = BudgetLedger.rebuild(
+        [
+            _asked(fallback="model", attempts=2),
+            Event(
+                event_id="ask-bomb",
+                stream_id=SESSION_STREAM_ID,
+                event_type=QUESTION_ASKED,
+                principal_id="creator",
+                payload={"question": "q", "fallback": "model", "attempts": "lots"},
+            ),
+            Event(
+                event_id="ask-negish",
+                stream_id=SESSION_STREAM_ID,
+                event_type=QUESTION_ASKED,
+                principal_id="creator",
+                payload={"question": "q", "fallback": "model", "attempts": -3},
+            ),
+        ]
+    )
+    slab = ledger.stream_budget(SESSION_STREAM_ID)
+    assert slab is not None
+    assert slab.model_calls == 3
+    assert slab.attempts == 2
+    assert ledger.total().attempts == 2
+
+
 def test_mission_allocation_folds_to_mission_stream():
     ledger = BudgetLedger.rebuild(
         [
