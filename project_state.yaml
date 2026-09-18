@@ -37,7 +37,8 @@ status:
   observability: "implemented_merged_a87e5ca"  # module 12: jarvis.* OpenTelemetry spans (s110.1); additive optional observer on EventLog/PolicyEngine/ModelGateway; opentelemetry-sdk dependency
   m1_acceptance: "implemented_merged_e9e2e10"  # module 13: NAT-01..05 end-to-end + s112 invariant suite (tests/acceptance/test_m1_acceptance.py)
   m6_gate_carryover: "implemented_merged_814d8bd"  # pre-gate carry-over from the Module-6 red-team queue: F8 (pyproject [dependency-groups] dev pytest + conftest interpreter gate rc=3), F5 (strict _constraint_matches: exact-on-0.x, prerelease/padding rejected, _NUMERIC_VERSION), F6 (schema_sha256 bound to schema_id on adapter args + ValidatedOutput), F14 (runtime failover to fallback_provider_id on ProviderTransportError), F3/F13 (resolve_version_for_provider -> contract_version tracks the ACTIVE provider). F2/F10 already applied pre-03622e7. 231 passed (+10 regression tests)
-  m1_gate_review: "ready_dispatch_to_freebuff"  # docs/M1_REDTEAM_REQUEST.md in worktree F:\JARVIS-rt-m1 (branch review/m1-gate) targets main @ 814d8bd
+  m1_gate_review: "dispatched_to_freebuff"  # review worktree F:\JARVIS-fb-m1 (branch review/m1-mod8-13) frozen at main @ df72c4a; 231 passed inside worktree (Python 3.12.6 venv); scope: modules 8-13 + cross-cutting seams; findings are PROPOSALS; evidence tests uncommitted tests/ only; src/ untouchable; no merge/rebase/push
+  m1_gate_review_predecessor: "superseded"  # earlier request docs/M1_REDTEAM_REQUEST.md targeted main @ 814d8bd in worktree F:\JARVIS-rt-m1 (branch review/m1-gate @ a6a16aa); superseded by the df72c4a freeze (M6 carry-over + s112 fix now in scope)
   m1_must_tier_verification: "antigravity_verified_cross_environment_confirmed_f8d8a77"  # 2026-09-18: independent read-only audit of all 12 s134.1 MUST items + NAT-01..05 + s112 subset on main @ f8d8a77; 231 passed; verdict CROSS_ENVIRONMENT_CONFIRMED: M1_MUST_TIER_COMPLETE. Gate remains open pending Freebuff red-team + creator sign-off
   m2_memory_os: "not_started"
   m3_missions: "not_started"
@@ -100,7 +101,7 @@ current_task:
   status: "ready_for_gate_review"
   phase: "m1_must_complete"
   objective: "m1_must_tier_and_acceptance_suite_complete"
-  next_step: "freebuff_adversarial_red_team_on_review/m1-gate (request issued); resolve any critical findings; then creator M1 sign-off"
+  next_step: "freebuff_adversarial_red_team_on_review/m1-mod8-13 @ df72c4a (dispatched); reconcile findings; then creator M1 sign-off"
 
 constraints:
   architecture_freeze: true
