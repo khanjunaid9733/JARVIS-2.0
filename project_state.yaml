@@ -32,6 +32,7 @@ status:
   memory_projection: "implemented_merged_16afde0"  # module 7: deterministic projection state + NAT-03 state digest (s134.1)
   effect_envelope: "implemented_merged_8f1ba9a"  # module 8: single-effect prepare/authorize/commit/verify envelope (s83/s98); zero-effects half of NAT-01; idempotency concurrency fix merged cca3d29 (module 8b)
   policy: "implemented_merged_ce0ffa1"  # module 9: deterministic policy-viability gate (s80.5) - capability/budget/risk-autonomy/privacy-trust; standalone seam (not yet wired)
+  done_gate: "implemented_merged_0e4a92a"  # module 10: deterministic completion gate (s81.3) + gated memory.write path (s84.4/s127.1); full lifecycle FSM deferred as STRETCH per s134.1
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -77,14 +78,14 @@ nats:
     note: "replay() always verifies; tamper halts with EventIntegrityError"
   nat_05:
     bind: "deterministic FSM / done-gate (constitution 12)"
-    status: "pending"
-    note: "bound to mission lifecycle FSM module, not yet built"
+    status: "implemented"
+    note: "deterministic done-gate implemented in kernel/done_gate.py (module 10): CompletionGate.declare_completion is the only completion path and emits task.completed ONLY on a passing gate decision; failed evidence emits task.completion_refused, never a completion event (tests test_nat_05_completion_without_evidence_is_refused / _partial_evidence_still_refused). Full mission-lifecycle FSM is STRETCH (M1.1, s134.1) and not required for this NAT; the agent-runtime half is simulated by direct calls (no agent runtime in M1)"
 
 current_task:
   status: "ready"
-  phase: "m1_module_9"
-  objective: "implement_deterministic_policy_viability"
-  next_step: "gate_review_module_9"
+  phase: "m1_module_10"
+  objective: "implement_deterministic_done_gate_and_memory_write_path"
+  next_step: "gate_review_module_10"
 
 constraints:
   architecture_freeze: true
