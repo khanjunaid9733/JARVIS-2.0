@@ -32,11 +32,13 @@ standalone seam consumed by later orchestration (module 10) / CLI (module
 are unchanged.
 """
 
+from contextlib import nullcontext
 from enum import IntEnum
-from typing import Literal, Mapping
+from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..observability import SPAN_POLICY_CHECK
 from .event_log import Event, EventLog
 from .intent import Budget, Manifest
 
@@ -144,8 +146,14 @@ class PolicyEngine:
     """Evaluates policy viability; appends one `policy.check` event per call
     when constructed with an `EventLog` (default None = fully in-memory)."""
 
-    def __init__(self, *, log: EventLog | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        log: EventLog | None = None,
+        observer: Any | None = None,
+    ) -> None:
         self._log = log
+        self._observer = observer
 
     def evaluate(self, manifest: Manifest, context: PolicyContext) -> PolicyDecision:
         denials: list[PolicyDenial] = []
@@ -257,7 +265,7 @@ class PolicyEngine:
     def _emit(
         self, manifest: Manifest, context: PolicyContext, decision: PolicyDecision
     ) -> None:
-        if self._log is None:
+        if self._log is None and self._observer is None:
             return
         payload = {
             "capability_requested": sorted(manifest.required_capabilities),
@@ -266,11 +274,23 @@ class PolicyEngine:
             "principal_id": context.principal_id,
             "denials": [d.model_dump() for d in decision.denials],
         }
-        self._log.append(
-            Event(
-                stream_id=POLICY_STREAM_ID,
-                event_type=POLICY_EVENT_TYPE,
-                principal_id=context.principal_id,
-                payload=payload,
-            )
+        attrs = {
+            "capability.requested": payload["capability_requested"],
+            "policy.result": payload["policy_result"],
+            "principal.id": context.principal_id,
+        }
+        span = (
+            self._observer.span(SPAN_POLICY_CHECK, attrs)
+            if self._observer is not None
+            else nullcontext()
         )
+        with span:
+            if self._log is not None:
+                self._log.append(
+                    Event(
+                        stream_id=POLICY_STREAM_ID,
+                        event_type=POLICY_EVENT_TYPE,
+                        principal_id=context.principal_id,
+                        payload=payload,
+                    )
+                )

@@ -11,6 +11,8 @@ from typing import Any, AsyncIterator, Callable, Iterable, Mapping, Optional, Pr
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..observability import SPAN_EVENT, event_attributes
+
 
 class EventLogError(RuntimeError):
     """Base error for the event log."""
@@ -117,6 +119,7 @@ class EventLog:
         clock: Clock | None = None,
         *,
         autocommit: bool = True,
+        observer: Any | None = None,
     ) -> None:
         if db_path is None:
             home = os.environ.get("JARVIS_HOME", "~/.jarvis")
@@ -125,6 +128,7 @@ class EventLog:
         os.makedirs(os.path.dirname(self.db_path) or ".", exist_ok=True)
         self._clock: Clock = clock or SystemClock()
         self._autocommit = autocommit
+        self._observer = observer
         self._write_lock = threading.RLock()
         self._conn = self._connect()
         self._init_schema()
@@ -248,6 +252,9 @@ class EventLog:
                     )
             except sqlite3.IntegrityError as exc:
                 raise EventLogError(f"append rejected: {exc}") from exc
+        if self._observer is not None:
+            with self._observer.span(SPAN_EVENT, event_attributes(event)):
+                pass
         return event.event_id  # type: ignore[return-value]
 
     def _build_query(self, since: int, event_type: str | None, stream_id: str | None, mission_id: str | None) -> tuple[str, list[Any]]:
