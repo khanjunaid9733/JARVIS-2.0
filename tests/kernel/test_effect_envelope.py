@@ -6,6 +6,8 @@ The envelope is exercised against a seeded registry and scriptable fake
 adapters. No network, no filesystem, no terminal effect ever executes.
 """
 
+import asyncio
+
 import pytest
 
 from jarvis.kernel.effect_envelope import (
@@ -332,6 +334,43 @@ async def test_duplicate_idempotency_key_returns_prior_and_emits_nothing(tmp_pat
     assert second.effect_id == first.effect_id
     assert adapter.calls == 1
     assert [e.event_type for e in log.replay()] == before
+
+
+async def test_concurrent_same_key_invokes_adapter_once():
+    class SlowAdapter(SpyAdapter):
+        async def invoke(self, contract_id, version, args):
+            self.calls += 1
+            await asyncio.sleep(0.02)
+            return self.result
+
+    adapter = SlowAdapter("fs.default")
+    engine = _engine({"fs.default": adapter})
+    manifest = _manifest()
+
+    results = await asyncio.gather(
+        engine.run(manifest, "fs.read", intended_change={}, idempotency_key="k-conc"),
+        engine.run(manifest, "fs.read", intended_change={}, idempotency_key="k-conc"),
+    )
+
+    assert adapter.calls == 1
+    assert sorted(getattr(r, "duplicate") for r in results) == [False, True]
+
+
+async def test_distinct_keys_each_commit():
+    adapter = SpyAdapter("fs.default")
+    engine = _engine({"fs.default": adapter})
+    manifest = _manifest()
+
+    first, second = await asyncio.gather(
+        engine.run(manifest, "fs.read", intended_change={}, idempotency_key="k-a"),
+        engine.run(manifest, "fs.read", intended_change={}, idempotency_key="k-b"),
+    )
+
+    assert adapter.calls == 2
+    assert isinstance(first, EffectEnvelope)
+    assert isinstance(second, EffectEnvelope)
+    assert first.duplicate is False
+    assert second.duplicate is False
 
 
 # ---------------------------------------------------------------------------
