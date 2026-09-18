@@ -182,3 +182,32 @@ def test_model_backed_say_records_question_and_explain_shows_provenance(home, ca
     assert "model: model.adapter (model.generate_structured@1.0.0)" in out
     assert "retrieved memories: 1 (top score" in out
     assert "budget: 1 model call(s)" in out
+
+
+def test_cli_recall_searches_memories_and_traces(home, capsys):
+    from jarvis.kernel.event_log import EventLog
+    from jarvis.kernel.memory_trace import MemoryTraceWriter
+
+    _run(capsys, "init")
+    _run(capsys, "say", "remember: the safe word is umbrella")
+
+    log = EventLog(db_path=str(home / "log.db"))
+    try:
+        MemoryTraceWriter(log).record_episodic(
+            content="session began with an umbrella handoff",
+            source="agent.run",
+        )
+    finally:
+        log.close()
+
+    code, out = _run(capsys, "recall", "umbrella")
+    assert code == 0
+    assert "[agent.run]  session began with an umbrella handoff" in out
+    assert "[session 1]  the safe word is umbrella" in out
+
+
+def test_cli_recall_with_no_matches_reports_none(home, capsys):
+    _run(capsys, "init")
+    code, out = _run(capsys, "recall", "quantum entanglement")
+    assert code == 0
+    assert "no relevant memory" in out
