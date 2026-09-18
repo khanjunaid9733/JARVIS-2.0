@@ -82,13 +82,30 @@ class MemoryWriter:
             "provenance": dict(provenance or {}),
         }
 
-        event_ids = [self._append(MEMORY_PROPOSED, record)]
+        # Causal links point backward (§112): verified -> proposed; the terminal
+        # event -> verified. All share the proposed event id as correlation id.
+        proposed_id = self._append(MEMORY_PROPOSED, record)
+        event_ids = [proposed_id]
+
         decision = self._gate.evaluate("memory.write", record)
         gate_dump = decision.model_dump()
-        event_ids.append(self._append(MEMORY_VERIFIED, {**record, "gate": gate_dump}))
+        verified_id = self._append(
+            MEMORY_VERIFIED,
+            {**record, "gate": gate_dump},
+            cause_event_id=proposed_id,
+            correlation_id=proposed_id,
+        )
+        event_ids.append(verified_id)
 
         if not decision.passed:
-            event_ids.append(self._append(MEMORY_REJECTED, {**record, "gate": gate_dump}))
+            event_ids.append(
+                self._append(
+                    MEMORY_REJECTED,
+                    {**record, "gate": gate_dump},
+                    cause_event_id=verified_id,
+                    correlation_id=proposed_id,
+                )
+            )
             failed = ", ".join(check.name for check in decision.checks if not check.passed)
             return MemoryWriteResult(
                 status="rejected",
@@ -97,7 +114,14 @@ class MemoryWriter:
                 gate=decision,
             )
 
-        event_ids.append(self._append(MEMORY_COMMITTED, record))
+        event_ids.append(
+            self._append(
+                MEMORY_COMMITTED,
+                record,
+                cause_event_id=verified_id,
+                correlation_id=proposed_id,
+            )
+        )
         return MemoryWriteResult(
             status="committed",
             reason=None,
@@ -105,12 +129,21 @@ class MemoryWriter:
             gate=decision,
         )
 
-    def _append(self, event_type: str, payload: dict[str, Any]) -> str:
+    def _append(
+        self,
+        event_type: str,
+        payload: dict[str, Any],
+        *,
+        cause_event_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> str:
         return self._log.append(
             Event(
                 stream_id=MEMORY_STREAM_ID,
                 event_type=event_type,
                 principal_id=self._principal_id,
+                cause_event_id=cause_event_id,
+                correlation_id=correlation_id,
                 payload=payload,
             )
         )
