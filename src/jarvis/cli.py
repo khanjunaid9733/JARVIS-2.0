@@ -61,6 +61,13 @@ def _build_parser() -> argparse.ArgumentParser:
     replay.add_argument("--verify", action="store_true", help="verify the hash chain")
     replay.set_defaults(func=_cmd_replay)
 
+    recall = sub.add_parser(
+        "recall",
+        help="deterministic recall over committed memories + episodic traces (M2.1)",
+    )
+    recall.add_argument("query")
+    recall.set_defaults(func=_cmd_recall)
+
     # bare `jarvis` = restart/recovery summary (§127.1)
     parser.set_defaults(func=_cmd_status)
     return parser
@@ -263,6 +270,20 @@ def _cmd_replay(service: CoreService, args: argparse.Namespace) -> int:
     except EventIntegrityError as exc:
         print(f"verify: FAILED ({exc})")
         return 2
+    return 0
+
+
+def _cmd_recall(service: CoreService, args: argparse.Namespace) -> int:
+    assert service.log is not None
+    from .kernel.memory_api import Memory
+
+    hits = Memory(log=service.log).recall(args.query, limit=3)
+    if not hits:
+        print("no relevant memory")
+        return 0
+    for hit in hits:
+        content = " ".join(hit.content.split())
+        print(f"{hit.event_id}  {hit.score:.2f}  [{hit.source}]  {content}")
     return 0
 
 
