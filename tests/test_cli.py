@@ -15,6 +15,11 @@ from jarvis.kernel.event_log import EventLog
 @pytest.fixture
 def home(tmp_path, monkeypatch):
     monkeypatch.setenv("JARVIS_HOME", str(tmp_path))
+    # Keep CLI tests HERMETIC: the machine may have the production model
+    # backend configured at user scope; pin the offline deterministic path
+    # so test outcomes never depend on a live backend (module 15 M1.1).
+    monkeypatch.delenv("JARVIS_MODEL_API_KEY", raising=False)
+    monkeypatch.delenv("JARVIS_MODEL_BASE_URL", raising=False)
     return tmp_path
 
 
@@ -119,3 +124,61 @@ def test_explain_unknown_event_fails(home, capsys):
     code, out = _run(capsys, "explain", "01NOSUCHULID0000000000000")
     assert code == 1
     assert "unknown event id" in out
+
+
+def test_explain_renders_full_blocks_for_memory_event(home, capsys):
+    _run(capsys, "init")
+    _run(capsys, "say", "remember: the safe word is umbrella")
+    code, out = _run(capsys, "explain", _committed_event_id(home))
+    assert code == 0
+    assert "state transitions: none (no mission events for this stream)" in out
+    assert "capability checks: none recorded" in out
+    assert "no effects outside manifest" in out
+    assert "budget: n/a (no model calls recorded)" in out
+
+
+def test_model_backed_say_records_question_and_explain_shows_provenance(home, capsys, monkeypatch):
+    from jarvis.kernel.model_gateway import ModelGateway
+    from jarvis.kernel.registry import CapabilityRegistry
+
+    class FakeAdapter:
+        provider_id = "model.adapter"
+
+        async def invoke(self, contract_id, version, args):
+            return {"answer": "umbrella", "confidence": 0.9}
+
+        def health_check(self):
+            return True
+
+    def fake_gateway(service):
+        if service.registry is None:
+            return None
+        return ModelGateway(
+            resolver=service.registry,
+            adapters={"model.adapter": FakeAdapter()},
+        )
+
+    _run(capsys, "init")
+    _run(capsys, "say", "remember: the safe word is umbrella")
+
+    monkeypatch.setattr(cli, "_build_model_gateway", fake_gateway)
+    code, out = _run(capsys, "say", "what is the safe word?")
+    assert code == 0
+    assert "umbrella" in out
+    assert "model-grounded" in out
+    assert "provider: model.adapter" in out
+
+    log = EventLog(db_path=str(home / "log.db"))
+    try:
+        asked = [e for e in log.replay() if e.event_type == "question.asked"]
+    finally:
+        log.close()
+    assert len(asked) == 1
+    assert asked[0].payload["fallback"] == "model"
+
+    code, out = _run(capsys, "explain", asked[0].event_id)
+    assert code == 0
+    assert "answer path: model" in out
+    assert "model: model.adapter (model.generate_structured@1.0.0)" in out
+    assert "retrieved memories: 1 (top score" in out
+    assert "budget: 1 model call(s)" in out
