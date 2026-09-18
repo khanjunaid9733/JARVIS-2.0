@@ -4,7 +4,7 @@ project:
   full_name: "Just A Rather Very Intelligent System"
   workspace: "F:/JARVIS2.0"
   type: "persistent_cognitive_operating_system"
-  updated_at: "2026-09-18T14:27:06Z"
+  updated_at: "2026-09-18T20:05:00Z"
 
 spec:
   version: "1.0.0-freeze"
@@ -104,31 +104,42 @@ nats:
 m1_definition_of_done:
   s134_1_must: "complete"  # event store, creator identity, intent ABI, registry, adapter iface, model gateway, generate_structured, memory projection, CLI init/say/explain, replay --verify, OTel jarvis.* spans, 5 NATs
   s112_invariants: "m1_subset_green; deferred: budget accounting (M2), quarantine/cancellation/circuit-breakers (M3), secret-scanning (M2)"
-  s127_1_smoke: "observable_offline; full model-backed explain rendering is STRETCH (M1.1)"
+  s127_1_smoke: "observable_offline; model-backed say + full explain rendering DONE (STRETCH M1.1, modules 15/17) — gateway path engages only when JARVIS_MODEL_API_KEY/JARVIS_MODEL_BASE_URL are set; offline byte-identical"
   disclosed_deviations:
     - "model backend is remote OpenAI-compatible (Groq) per ADR-010, not a local Ollama adapter as s134.1 literally names"
-    - "jarvis say question path is deterministic/extractive (no model call), so confidence is a lexical score, not a model probability"
-    - "full mission-lifecycle FSM and full explain cause-chain rendering are STRETCH (M1.1) per s134.1"
+    - "jarvis say question path is model-backed when JARVIS_MODEL_API_KEY/BASE_URL/NAME are configured; deterministic extractive otherwise (module-6 adapter default llama-3.3-70b-versatile is decommissioned on Groq — M1.1 picks openai/gpt-oss-120b via JARVIS_MODEL_NAME)"
+    - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)
 
 current_task:
-  status: "m1_1_module14_complete"
-  phase: "m1_1_stretch_module_14_merged"
-  objective: "module_14_mission_lifecycle_fsm_implemented"
-  next_step: "decide remaining M1.1 STRETCH scope (full explain cause-chain rendering, model-backed say/explain, budget display)"
+  status: "m1_1_stretch_complete"
+  phase: "m1_1_stretch_modules_15_17_merged"
+  objective: "m1_1_stretch_full_explain_model_backed_say_budget_display"
+  next_step: "Antigravity adversarial review of modules 15-17, then M2 (Memory OS) kickoff or M1.1 sign-off"
 
 m1_1_stretch:
-  status: "module14_open; remaining_items_pending"  # module 14 (mission-lifecycle FSM) DONE; explain/say/budget items not_started
+  status: "modules_15_17_complete; adversarial_review_pending"  # module 14 (mission-lifecycle FSM) + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged f89ad5f+b45add7; Antigravity handoff pending
   entry_conditions:
     - "M1 sign-off recorded (DONE 2026-09-18)"
     - "model backend reachable: ADR-010 remote OpenAI-compatible (Groq) endpoint configured with a key"
     - "main pushed to origin / main push protection resolved (DONE 2026-09-18 @ 2a7f33c)"
     - "deterministic kernel invariant to M1.1 work (additive modules only; no src/ behavior changes to modules 1-13)"
-  scope_items: "spec s134.1 STRETCH (M1.1): [DONE] full mission-lifecycle FSM (module 14, b41509b); [PENDING] full explain cause-chain rendering, model-backed say/explain rendering, budget display; non-goal: M2 memory OS, M3 missions, M4 multimodal, M5 robotics"
+  scope_items: "spec s134.1 STRETCH (M1.1): [DONE] full mission-lifecycle FSM (module 14, b41509b); [DONE] full explain cause-chain rendering (module 17, f89ad5f); [DONE] model-backed say/explain rendering (module 15, f89ad5f+b45add7); [DONE] budget accounting display (module 16, f89ad5f); non-goal: M2 memory OS, M3 missions, M4 multimodal, M5 robotics"
   kickoff: "docs/MODULE14_KICKOFF.md"
   module14:
     merged: "b41509b"
     reconciled_against: "antigravity_adversarial_pass_2026-09-18"  # F-M14-1..6; 5 fixed @ f31f87f, F-M14-6 accepted+documented (single-writer advance() contract); see docs/MODULE14_IMPLEMENTATION.md §7
     rejection: "none"
+  module15:
+    implemented: "f89ad5f"
+    note: "model-backed structured answering; additive input_text seam on ModelGateway/OpenAICompatibleAdapter (question+recalled memories grounded, verified live); question.asked appended only on gateway path (offline byte-identical); JARVIS_MODEL_NAME default openai/gpt-oss-120b (module-6 default decommissioned on Groq); model_name provenance; see docs/MODULE15_IMPLEMENTATION.md"
+  module16:
+    implemented: "f89ad5f"
+    note: "BudgetLedger pure fold: question.asked + mission.started allocation; per-mission key (mission_id or stream_id); honest 0-token accounting until an adapter reports usage; see docs/MODULE16_IMPLEMENTATION.md"
+  module17:
+    implemented: "f89ad5f"
+    cli: "b45add7"
+    note: "explain_event pure read-only renderer (cause chain, lifecycle state/transitions, model provenance + recalled memories, policy/effect counts, budget slab, memory content); CLI full rendering keeps section 127.1 assertions stable; see docs/MODULE17_IMPLEMENTATION.md"
+  adversarial_review: "pending"  # Antigravity review of modules 15-17 (docs/M1_1_ADVERSARIAL_HANDOFF.md) not yet run
 
 constraints:
   architecture_freeze: true
