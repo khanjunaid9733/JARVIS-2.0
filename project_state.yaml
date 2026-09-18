@@ -114,14 +114,14 @@ current_task:
   status: "m1_1_module14_complete"
   phase: "m1_1_stretch_module_14_merged"
   objective: "module_14_mission_lifecycle_fsm_implemented"
-  next_step: "decide remaining M1.1 STRETCH scope (full explain cause-chain rendering, model-backed say/explain, budget display); push main to origin remains blocked by GitHub branch rules"
+  next_step: "decide remaining M1.1 STRETCH scope (full explain cause-chain rendering, model-backed say/explain, budget display)"
 
 m1_1_stretch:
   status: "module14_open; remaining_items_pending"  # module 14 (mission-lifecycle FSM) DONE; explain/say/budget items not_started
   entry_conditions:
     - "M1 sign-off recorded (DONE 2026-09-18)"
     - "model backend reachable: ADR-010 remote OpenAI-compatible (Groq) endpoint configured with a key"
-    - "main pushed to origin / main branch-protection resolved (STILL BLOCKED)"
+    - "main pushed to origin / main push protection resolved (DONE 2026-09-18 @ 2a7f33c)"
     - "deterministic kernel invariant to M1.1 work (additive modules only; no src/ behavior changes to modules 1-13)"
   scope_items: "spec s134.1 STRETCH (M1.1): [DONE] full mission-lifecycle FSM (module 14, b41509b); [PENDING] full explain cause-chain rendering, model-backed say/explain rendering, budget display; non-goal: M2 memory OS, M3 missions, M4 multimodal, M5 robotics"
   kickoff: "docs/MODULE14_KICKOFF.md"
