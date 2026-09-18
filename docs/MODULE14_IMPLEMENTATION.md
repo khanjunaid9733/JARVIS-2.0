@@ -66,3 +66,32 @@ unchanged behavior.
 
 The owner NEVER appends `task.completed` — it consumes it. That emission
 remains exclusively `CompletionGate`'s. Asserted in tests.
+
+## 7. Post-ratification reconciliation (Antigravity adversarial pass, 2026-09-18)
+
+`@ 34496be` was reviewed adversarially (Freebuff limit-hit; Antigravity ran
+the pass). Reconciliation `@ f31f87f`:
+
+| Finding | Severity | Resolution |
+| :--- | :--- | :--- |
+| F-M14-1 engine-built effects invisible to `_slice()` (envelope emits `mission_id=NULL`) | CRITICAL | **Fixed** — additive `mission_id` seam on `EffectEnvelopeEngine` (default None = module-8 behavior unchanged); `build_effect_engine()` binds it. Engine-emitted `effect.*` events now fold into the lifecycle. |
+| F-M14-2 `compensated` absorbing dropped later failures in multi-effect missions (§83) | HIGH | **Fixed** — only `completed`/`refused` are fully absorbing; `compensated` keeps folding the effect/compensation ledger so EVERY failed effect is recorded. |
+| F-M14-3 `pending` + `task.completed` stranded a zombie state | MEDIUM | **Fixed** — added `pending → completed` / `pending → refused` cells (CompletionGate is authoritative, NAT-05). |
+| F-M14-4 `dict(...)` on non-dict `intended_change` could crash fold/replay | MEDIUM | **Fixed** — guarded coercion; non-dict preserved under a `"raw"` key. |
+| F-M14-5 `EffectRecord.phase` accepted non-effect event types | LOW | **Fixed** — phase updates restricted to `_EFFECT_EVENT_TYPES`. |
+| F-M14-6 concurrent same-mission `advance()` could double-append lifecycle events | LOW | **Accepted + documented** — `advance()` is the orchestrator's synchronous single-writer fold in M1.1; duplicate lifecycle events are no-ops to the fold. |
+
+Contract consequences (disclosed, not silent):
+
+1. **Compensation ledger** — `compensated` is terminal for TRANSITIONS but a
+   rolling terminal for the ledger: `compensation`/`effects`/`event_count`
+   keep folding. `CompensationRecord.status` stays `"declared"` until M2
+   compensators land (§83 seam) — `"pending"`/`"executed"` remain the stated
+   M2 progression, not dead code.
+2. **Effect visibility** — module 14 no longer relies on the M2 orchestrator
+   tagging effect events: the envelope engine stamps `mission_id` when built
+   through `build_effect_engine()`. Standalone module-8 engines (no
+   `mission_id`) behave exactly as before.
+
+Suite after reconciliation: **267 passed** (243 baseline + 19 module-14 +
+5 review-contract tests).
