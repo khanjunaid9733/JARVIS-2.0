@@ -14,8 +14,13 @@ child" (§110.1). This module provides the emission seam:
 
 Span names and attribute keys are DATA (constants below), exactly as §110.1
 tabulates. Instrumentation is ADDITIVE and optional: `EventLog`,
-`PolicyEngine`, and `ModelGateway` accept `observer=None` and are unchanged
-when it is not provided.
+`PolicyEngine`, `ModelGateway`, and `EffectEnvelopeEngine` accept
+`observer=None` and are unchanged when it is not provided. The effect
+pipeline emits a `jarvis.effect.execute` span per run with the postcondition
+check under `jarvis.verify.postconditions` (F-E15): with an observer
+attached, every event is a span and every effect/verification is a child as
+§110.1 requires. Exported spans require an exporter — attach one for durable
+tracing; the NoOp default stays inert.
 """
 
 from contextlib import contextmanager

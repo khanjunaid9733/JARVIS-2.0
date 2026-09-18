@@ -314,3 +314,35 @@ def test_log_none_is_fully_in_memory():
     decision = engine.evaluate(_manifest(), _context())
     assert isinstance(decision, PolicyDecision)
     assert decision.allowed is True
+
+
+# ---------------------------------------------------------------------------
+# F-B6: empty-contract manifest is fail-closed under non-public privacy class
+# ---------------------------------------------------------------------------
+
+def test_zero_contract_manifest_denied_restricted_privacy():
+    manifest = _manifest(contracts=[])
+    context = _context(privacy="restricted", trust={})
+    decision = PolicyEngine().evaluate(manifest, context)
+
+    assert decision.allowed is False
+    assert [d.reason for d in decision.denials] == ["privacy_trust_mismatch"]
+    assert decision.checks["privacy_trust_match"] is False
+
+
+def test_zero_contract_manifest_denied_internal_privacy():
+    manifest = _manifest(contracts=[])
+    context = _context(privacy="internal", trust={})
+    decision = PolicyEngine().evaluate(manifest, context)
+
+    assert decision.allowed is False
+    assert [d.reason for d in decision.denials] == ["privacy_trust_mismatch"]
+
+
+def test_zero_contract_manifest_public_privacy_still_allowed():
+    manifest = _manifest(contracts=[])
+    context = _context(privacy="public", trust={})
+    decision = PolicyEngine().evaluate(manifest, context)
+
+    assert decision.allowed is True
+    assert decision.checks["privacy_trust_match"] is True

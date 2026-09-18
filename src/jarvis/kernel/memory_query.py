@@ -26,6 +26,14 @@ _STOPWORDS = frozenset(
     "we me my your".split()
 )
 
+# F-D13: `answer()` only emits an answer when at least half of the query's
+# non-stopword tokens overlap a remembered fact. Below the floor the CLI
+# reports "no relevant memory" instead of a confident-sounding guess. The
+# overlap score remains `confidence` (disclosed extractive scoring), and the
+# floor prevents a token-overlap's-wrong-memory recall from being presented
+# as an answer.
+ANSWER_MIN_CONFIDENCE = 0.5
+
 
 def _tokens(text: str) -> list[str]:
     return [token for token in _WORD.findall(text.lower()) if token not in _STOPWORDS]
@@ -97,6 +105,15 @@ def answer(projection: MemoryProjection, query: str) -> AnswerResult:
             memory_event_id=None,
         )
     top = hits[0]
+    if top.score < ANSWER_MIN_CONFIDENCE:
+        # F-D13: low token overlap is not an answer — report "not answered".
+        return AnswerResult(
+            answered=False,
+            answer=None,
+            confidence=top.score,
+            source=None,
+            memory_event_id=None,
+        )
     return AnswerResult(
         answered=True,
         answer=_extract(top.content),

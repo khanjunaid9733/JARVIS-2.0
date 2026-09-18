@@ -52,7 +52,18 @@ class MemoryWriteResult(BaseModel):
 
 class MemoryWriter:
     """Writes gated memories to the append-only log. Emits four event types:
-    proposed, verified, then committed (pass) or rejected (fail)."""
+    proposed, verified, then committed (pass) or rejected (fail).
+
+    Disclosed M1 default (F-C9 ruling, pending creator ratification): unlike
+    `registry.register_provider` (NAT-02 blocks non-creator registration),
+    the writer performs NO principal authority check. Any caller may author
+    under a supplied `principal_id`, and that principal is carried verbatim
+    on every memory event (§84.4 provenance) and folded into the projection.
+    This keeps agent-authored memories possible at M1 while the key-based
+    authority module (the same deferred half as NAT-02) lands in M2; until
+    then, authorship provenance — not a registry gate — is the trust
+    boundary. Reversal of this default is a creator decision, not a code fix.
+    """
 
     def __init__(
         self,
