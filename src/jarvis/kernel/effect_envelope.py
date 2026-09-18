@@ -26,13 +26,16 @@ in-memory: no events table, no disk.
 
 Idempotency: the engine holds `{idempotency_key -> committed envelope}`. A
 repeat of a committed key returns the prior envelope marked
-`duplicate=True` and emits NO events (checked before PREPARE).
+`duplicate=True` and emits NO events (checked before PREPARE). The
+check → commit → store window is serialized per key, so concurrent runs
+with the same key commit exactly once.
 
 M1 scope (ratified): envelope-only. No real fs/terminal/http adapters;
 tests use fake/spy adapters and terminal never performs a real effect.
 Multi-effect mission compensation (§83) is deferred.
 """
 
+import asyncio
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -137,6 +140,7 @@ class EffectEnvelopeEngine:
         self._clock: Clock = clock or SystemClock()
         self._principal_id = principal_id
         self._committed_keys: dict[str, EffectEnvelope] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
 
     async def run(
         self,
@@ -153,10 +157,40 @@ class EffectEnvelopeEngine:
         if not idempotency_key:
             raise ValueError("idempotency_key must be non-empty")
 
-        prior = self._committed_keys.get(idempotency_key)
-        if prior is not None:
-            return prior.model_copy(update={"duplicate": True})
+        # Idempotency is serialized per key: the check → commit → store window
+        # contains an await (adapter.invoke), so without a lock two concurrent
+        # runs with the same key could both commit. See effect-idempotency fix.
+        lock = self._locks.get(idempotency_key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._locks[idempotency_key] = lock
+        async with lock:
+            prior = self._committed_keys.get(idempotency_key)
+            if prior is not None:
+                return prior.model_copy(update={"duplicate": True})
+            return await self._execute(
+                manifest,
+                contract_id,
+                intended_change=intended_change,
+                preconditions=preconditions,
+                postconditions=postconditions,
+                compensation=compensation,
+                idempotency_key=idempotency_key,
+                capability_args=capability_args,
+            )
 
+    async def _execute(
+        self,
+        manifest: Manifest,
+        contract_id: str,
+        *,
+        intended_change: dict[str, Any],
+        preconditions: dict[str, Any] | None = None,
+        postconditions: dict[str, Any] | None = None,
+        compensation: dict[str, Any] | None = None,
+        idempotency_key: str,
+        capability_args: dict[str, Any] | None = None,
+    ) -> EffectEnvelope | EffectFailure:
         envelope = EffectEnvelope(
             effect_id=new_ulid(),
             manifest_id=manifest.manifest_id,
