@@ -31,6 +31,7 @@ status:
   registry_events: "implemented_merged_5127753"  # Freebuff F5: optional capability.provider_added / provider_revoked writer (log=None preserves in-memory-only)
   memory_projection: "implemented_merged_16afde0"  # module 7: deterministic projection state + NAT-03 state digest (s134.1)
   effect_envelope: "implemented_merged_8f1ba9a"  # module 8: single-effect prepare/authorize/commit/verify envelope (s83/s98); zero-effects half of NAT-01; idempotency concurrency fix merged cca3d29 (module 8b)
+  policy: "implemented_merged_ce0ffa1"  # module 9: deterministic policy-viability gate (s80.5) - capability/budget/risk-autonomy/privacy-trust; standalone seam (not yet wired)
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -81,9 +82,9 @@ nats:
 
 current_task:
   status: "ready"
-  phase: "m1_module_8"
-  objective: "implement_single_effect_envelope"
-  next_step: "gate_review_module_8"
+  phase: "m1_module_9"
+  objective: "implement_deterministic_policy_viability"
+  next_step: "gate_review_module_9"
 
 constraints:
   architecture_freeze: true
