@@ -30,6 +30,7 @@ status:
   registry: "implemented_merged_03b8f3c"  # authoritative module-4 spec: in-memory CapabilityRegistry + ProviderAdapter Protocol (interface), NAT-02 deterministic half
   registry_events: "implemented_merged_5127753"  # Freebuff F5: optional capability.provider_added / provider_revoked writer (log=None preserves in-memory-only)
   memory_projection: "implemented_merged_16afde0"  # module 7: deterministic projection state + NAT-03 state digest (s134.1)
+  effect_envelope: "implemented_merged_8f1ba9a"  # module 8: single-effect prepare/authorize/commit/verify envelope (s83/s98); zero-effects half of NAT-01
   m2_memory_os: "not_started"
   m3_missions: "not_started"
   m4_multimodal: "not_started"
@@ -60,7 +61,7 @@ nats:
   nat_01:
     bind: "capability registry + intent ABI (constitution 6/11)"
     status: "partial"
-    note: "deterministic half implemented (test_nat_01_proposal_with_ungranted_capability_is_rejected: ungranted capability -> ValidationFailure, no Manifest); zero-effects half needs the effects module (module 8)"
+    note: "deterministic half implemented (test_nat_01_proposal_with_ungranted_capability_is_rejected: ungranted capability -> ValidationFailure, no Manifest); zero-effects half implemented in module 8 (test_capability_outside_manifest_refused_zero_effects: authorize gate refuses, adapter invoked zero times). End-to-end NAT-01 acceptance remains bound to the s127.1 smoke test (module 13)"
   nat_02:
     bind: "creator identity + capability registry authority (constitution 5)"
     status: "partial"
@@ -80,9 +81,9 @@ nats:
 
 current_task:
   status: "ready"
-  phase: "m1_module_7"
-  objective: "implement_minimal_memory_projection"
-  next_step: "gate_review_module_7"
+  phase: "m1_module_8"
+  objective: "implement_single_effect_envelope"
+  next_step: "gate_review_module_8"
 
 constraints:
   architecture_freeze: true
