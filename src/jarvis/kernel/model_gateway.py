@@ -20,6 +20,14 @@ return `TypedFailure(reason="unsupported_contract")` until a later module
 binds them. Role → contract/constraint is DATA (`M1_ROLE_CONTRACTS`),
 never branching code.
 
+M2.2 (additive, ratified design): `generate_structured` accepts an optional
+`role_contracts` mapping merged OVER `M1_ROLE_CONTRACTS` for that call only.
+`None` (the default) preserves the M1 routing exactly — frozen callers pass
+byte-identical behavior. `role_contracts` is route DATA, not branching code;
+the model fabric (`RoleContract.EMBED` / `RoleContract.RERANK` bindings)
+arrives as data from the consumer module (`jarvis.kernel.memory_retrieval`),
+never hardcoded here.
+
 ADR-006: structured output = Pydantic v2 schema validation with
 retry-on-validation-failure. The model never supplies validated data; the
 gateway validates locally (`schema.model_validate`). On `ValidationError`
@@ -197,15 +205,24 @@ class ModelGateway:
         intent_id: str | None = None,
         task_id: str | None = None,
         input_text: str | None = None,
+        role_contracts: dict[RoleContract, tuple[str, str]] | None = None,
     ) -> ValidatedOutput | TypedFailure:
-        route = M1_ROLE_CONTRACTS.get(role_contract)
+        # Additive M2.2 (module 20) seam: extra role routes merged over the M1
+        # table for this call only. None keeps M1 behavior byte-identical.
+        route_table = (
+            M1_ROLE_CONTRACTS
+            if role_contracts is None
+            else {**M1_ROLE_CONTRACTS, **role_contracts}
+        )
+        route = route_table.get(role_contract)
         if route is None:
             return TypedFailure(
                 reason="unsupported_contract",
                 detail=(
                     f"role '{role_contract.value}' is declared (§131.13) but "
-                    "has no M1-bound provider (module 6 routes only "
-                    "SCHEMA_CONSTRAINED)"
+                    "has no bound provider in the consulted role→contract route "
+                    "table (M1 routes only SCHEMA_CONSTRAINED; extra routes are "
+                    "caller-supplied additive data)"
                 ),
             )
         contract_id, version_constraint = route
