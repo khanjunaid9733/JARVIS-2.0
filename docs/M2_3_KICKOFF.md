@@ -73,23 +73,42 @@ identical result (ULID event_ids are outcome keys, not inputs).
 
 Frozen pydantic `BaseModel` (`extra="forbid"`), fully described decision table:
 
-- `extract: ExtractRule` — `normalize` (exact | lower | strip | fold), `content_min_len`,
-  `evidence_min` (min trace members per promoted cluster; ≥1).
-- `contradiction: ContradictionRule` — `gate` (same_key_same_source | any_key_same_source |
-  disabled), `supersede` (bool), `supersede_evidence_min` (min cluster evidence to win
-  a conflict).
-- `promote: PromotionRule` — `memory_class` (semantic | procedural), `confidence_floor`,
-  `max_promotions` (`int | None` — cap per run for determinism of large folds).
-- `audit: bool` — emit `memory.consolidate.superseded` when conflicts resolve.
+- `extract: ExtractRule` — `normalize` (**exact = strip only | lower = strip+casefold |
+  fold = strip+whitespace-collapse+casefold** — three strictly distinct modes,
+  FB-M2.3-7), `content_min_len`, `evidence_min` (min trace members per promoted
+  cluster; ≥1).
+- `contradiction: ContradictionRule` — `gate` (**same_key_same_source |
+  any_key_same_source | disabled** — all three construct and evaluate; the gate
+  decides DURING source-equality: same_key_same_source requires identical
+  normalized key, any_key_same_source matches any key once source matches,
+  FB-M2.3-2), `supersede` (bool), `supersede_evidence_min` (min cluster evidence
+  to win a conflict), `supersede_refine_gap: float | None` (**None default:
+  consolidation-PRODUCT memories — provenance carries `evidence_ids` — are
+  excluded from same-key supersession entirely; a product is superseded only
+  when this gap is policy-set AND the candidate's aggregate confidence beats
+  the product by ≥ gap — stable facts promote once, then refine on a
+  policy-declared gain, never churn, FB-M2.3-4**).
+- `promote: PromotionRule` — `memory_class` (semantic | procedural),
+  `confidence_floor`, `max_promotions` (`int | None` — cap per run for
+  determinism of large folds), `order` (**log | confidence_desc** — which
+  candidates fill the cap first, FB-M2.3-9).
+- `audit: bool` — emit `memory.consolidate.superseded` when conflicts resolve
+  (the `memory.consolidate.rejected` marker has the same audit semantics).
 - `principal_id` default `"creator"` (FB-M2.2-7 precedent) — consolidation always
   authors under a caller-declared principal stamped on events it appends.
+
+Additionally (amendment, FB-M2.3-1): the consolidator resolves ONE principal —
+the constructor `principal_id` (default: the policy `principal_id`) — and that
+principal stamps the promotion chain (`memory.write.*`) AND the audit
+events (`memory.consolidate.*`). One consolidation, one principal: the two can
+never diverge.
 
 Every branch in the consolidator evaluates one of these data fields — no `if`
 dispatches on concrete memory identity, model names, or trace contents. A default
 policy is installed and documented in the module docstring (disclosed default, F-C9
 file).
 
-### C. Supersession audit events (stream "memory", additive)
+### C. Supersession + rejection audit events (stream "memory", additive)
 
 New event type **`memory.consolidate.superseded`** on stream `"memory"`: payload
 `{old_event_id, new_event_id, reason, principal_id}`. It is appended ONLY when a
@@ -99,6 +118,20 @@ consolidator's own projection (`superseded: dict[old→new]`), **NOT** by
 fold-content stability holds: audit lives outside the memories/traces folds).
 Promotions leave their own audit trail via the existing `memory.write.*` chain, so
 no extra per-promotion event is fabricated.
+
+New event type **`memory.consolidate.rejected`** on stream `"memory"`: payload
+`{evidence_ids, reason}`. A promotion whose frozen write-path gate rejects the
+passing pre-check is a failed promotion: its evidence ids are recorded ONCE in a
+durable marker and never re-attempted, so idempotency ("unchanged log → zero
+events") cannot be broken by a seam disagreement (`audit=False` or not, the
+marker is always written — a rejection must be sticky to be idempotent,
+FB-M2.3-5). The marker is a DIAGNOSTIC audit event like supersede: never folded
+by `MemoryIndex`, never in the memories/traces folds.
+
+**Success bookkeeping is derived from committed provenance, never from audit
+events** — the authoritative record a later run replays is the promoted memory's
+own `provenance.superseded` list. Combined with the product-exclusion rule
+(§B), `audit=False` runs stay bounded and can never split-brain (FB-M2.3-3/4).
 
 ### D. Integrations (additive only)
 
@@ -121,7 +154,9 @@ Hermetic, offline, deterministic (no dials — ranker seam unused). At minimum:
    new events.
 4. `contradiction_supersedes` — conflicting cluster promotes and emits
    `memory.consolidate.superseded`; provenance carries evidence + superseded id;
-   `MemoryIndex` digest unchanged by the supersede event.
+   `MemoryIndex` fold COMPOSITION (memories/traces keys — fold-input stability,
+   FB-M2.2-3 precedent) unchanged by the supersede event (any appended event
+   legitimately moves event_count/streams/digest — that is the M2.1 contract).
 5. `policy_is_decision_table` — same traces, different `evidence_min`/`confidence_floor`
    policies → different promote/skip sets, no code path change.
 6. `gate_failure_skips_not_raises` — candidate failing the `DoneGate` checks is
@@ -175,3 +210,39 @@ Hermetic, offline, deterministic (no dials — ranker seam unused). At minimum:
 `MemoryWriter` path (recommended) vs. dedicated `memory.consolidate.*` events;
 (R2) accept supersession audit events being excluded from `MemoryIndex` folds
 (recommended) vs. extend `MemoryIndex`.
+
+## 7. Amendment record — dual-verification reconciliation (2026-09-19)
+
+Freebuff red-team (FB-M2.3-1..11) and Antigravity audit (F-M2.3-1..11) both
+returned `M2_3_RECONCILIATION_REQUIRED` against `c78f406`. The reconciliation
+(landed on `task/m2.3`, evidence in `docs/M2_3_RECONCILIATION.md`) amends the
+ratified contract as follows:
+
+1. **One consolidation, one principal** (FB-M2.3-1, F-M2.3-11): constructor
+   `principal_id` (default `policy.principal_id`) stamps the write chain AND the
+   audit events. Contract §B amended.
+2. **`any_key_same_source` gate restored** (FB-M2.3-2): all three declared gates
+   construct and evaluate. Contract §B amended.
+3. **Success bookkeeping from committed provenance** (FB-M2.3-3, F-M2.3-2): the
+   already-superseded set is derived from each committed memory's own
+   `provenance.superseded` (persisted in the authoritative record), never from
+   audit events — `audit=False` cannot split-brain. Contract §C amended.
+4. **Product-exclusion + `supersede_refine_gap`** (FB-M2.3-4): consolidation-product
+   memories are excluded from same-key supersession by default; products are
+   superseded only on a policy-declared confidence gain. Contract §B amended.
+5. **Sticky rejection marker** (FB-M2.3-5): new `memory.consolidate.rejected`
+   diagnostic event records a failed promotion once; evidence is never
+   re-attempted. Contract §C amended.
+6. **Fold-content wording** (FB-M2.3-6, F-M2.3-6): contract §E.4 rewording per the
+   FB-M2.2-3 precedent — fold inputs stable; digest/event_count move with any
+   appended event.
+7. **Distinct normalize modes** (FB-M2.3-7): exact = strip only, lower =
+   strip+casefold, fold = strip+collapse+casefold. Contract §B amended.
+8. **Robust provenance shape** (FB-M2.3-8a/b, F-M2.3-4): `evidence_ids`/`superseded`
+   reference handling can never raise untyped; a string is one reference, other
+   non-sequence shapes are ignored.
+9. **`promote.order` (log | confidence_desc)** (FB-M2.3-9): which candidates fill a
+   `max_promotions` cap. Contract §B amended.
+
+- [ ] **Ratify amendment record items 1–9** (creator) — see
+  `docs/M2_3_RECONCILIATION.md` for evidence and decision rationale.
