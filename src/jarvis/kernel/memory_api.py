@@ -19,6 +19,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from .event_log import EventLog
+from .memory_consolidate import ConsolidationPolicy, ConsolidationResult, MemoryConsolidator
 from .memory_index import MemoryIndex
 from .memory_projection import MemoryProjection
 from .memory_query import RecalledMemory, recall as _index_recall
@@ -110,6 +111,26 @@ class Memory:
             log=audit_log,
             principal_id=principal_id,
         )
+
+    def consolidate(
+        self,
+        *,
+        policy: ConsolidationPolicy | None = None,
+        principal_id: str | None = None,
+    ) -> ConsolidationResult:
+        """M2.3 additive seam: promote raw episodic traces into durable memory
+        (§84.3 two-tier). Deterministic, hermetic (no model calls, no effects),
+        decided by the DATA `ConsolidationPolicy`; promotions run the frozen
+        module-10 write path.
+
+        Requires an EventLog (the promotion appends `memory.write.*` events);
+        `principal_id=None` defers to the policy's principal (default
+        "creator"). `recall()`/`retrieve()`/`get()`/`digest()` are untouched."""
+        if self._log is None:
+            raise ValueError("Memory.consolidate requires an EventLog")
+        return MemoryConsolidator(
+            self._log, policy=policy, principal_id=principal_id
+        ).consolidate()
 
     def get(self, event_id: str) -> dict[str, Any] | None:
         if self._index is not None:
