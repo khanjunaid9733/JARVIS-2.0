@@ -49,6 +49,7 @@ class Memory:
     ) -> None:
         self._index: MemoryIndex | None = None
         self._projection: MemoryProjection | None = None
+        self._log: EventLog | None = log
         if index is not None:
             self._index = index
         elif projection is not None:
@@ -79,10 +80,17 @@ class Memory:
         limit: int = 3,
         ranker: RetrievalRanker | None = None,
         log: EventLog | None = None,
+        principal_id: str = "creator",
     ) -> list[RankedMemory]:
         """M2.2 additive seam: ranked retrieval over the same combined view as
         `recall()`, with fold tier/verification per hit (FB-1) and an optional
-        model-backed reranker. `recall()` is untouched."""
+        model-backed reranker. `recall()` is untouched.
+
+        Audit (FB-M2.2-4): when no `log` is given it defaults to the facade's
+        OWN EventLog (if any), so `Memory(log=log).retrieve(..., ranker=...)`
+        always leaves the audit trail for a real rerank. `principal_id` stamps
+        the audit event (FB-M2.2-7)."""
+        audit_log = log if log is not None else getattr(self, "_log", None)
         if self._index is not None:
             return await _retrieve(
                 self._index.memories,
@@ -90,7 +98,8 @@ class Memory:
                 query,
                 limit=limit,
                 ranker=ranker,
-                log=log,
+                log=audit_log,
+                principal_id=principal_id,
             )
         return await _retrieve(
             dict(self._projection.memories),  # type: ignore[union-attr]
@@ -98,7 +107,8 @@ class Memory:
             query,
             limit=limit,
             ranker=ranker,
-            log=log,
+            log=audit_log,
+            principal_id=principal_id,
         )
 
     def get(self, event_id: str) -> dict[str, Any] | None:

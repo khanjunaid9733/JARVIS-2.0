@@ -60,7 +60,8 @@ A) Role binding (additive, versioned, module 6 untouched)
    }
 
 B) New kernel module src/jarvis/kernel/memory_retrieval.py (deterministic core)
-   - RankedMemory (pydantic frozen, extra="forbid"):
+   - RankedMemory (pydantic frozen, extra="forbid", STRICT — no bool/int/str
+     coercion on any field, FB-M2.2-6):
        event_id: str
        content: str
        source: str
@@ -70,17 +71,22 @@ B) New kernel module src/jarvis/kernel/memory_retrieval.py (deterministic core)
                                              # committed fold (gate-passed, §84.4
                                              # tier separation; a trace is a raw
                                              # caller-declared record)
-   - retrieve(combined: Mapping[str, dict], query: str, *, limit, ranker=None)
+   - retrieve(memories: Mapping, traces: Mapping, query: str, *, limit,
+              ranker=None, log=None, principal_id="creator")
        -> list[RankedMemory]
        Candidate funnel = M2.1 lexical union (module-11 semantics) + tier tags
        from which map each event_id came from (memories vs traces).
-       ORDER (deterministic total order):
+       ORDER (deterministic total order, applied on BOTH the lexical core AND
+       the model-rerank seam, FB-M2.2-2):
            (-score, tier_order, event_id)
        where tier_order = 0 for memory, 1 for trace (equal-score verified
        memories outrank raw traces — the FB-1 discriminator, data rule in the
-       module, not branching).
+       module, never branching).
        `limit` validated (non-positive/non-int -> ValueError, M2.1 C4 rule).
        Empty/non-match -> [].
+       Cross-fold merge rule (FB-M2.2-5): an id in BOTH folds -> memories win
+       BOTH content and tier; malformed fold maps -> typed ValueError, never a
+       raw pydantic exception (FB-M2.2-8).
    - RetrievalRanker protocol (the §131.14 provider seam):
        async def rerank(self, query: str, candidates: list[RankedMemory],
                         limit: int) -> list[RankedMemory]
@@ -88,6 +94,11 @@ B) New kernel module src/jarvis/kernel/memory_retrieval.py (deterministic core)
          DATA, resolved via M2_ROLE_CONTRACTS[RERANK]): schema-validated
          scores; on TypedFailure/transport/validation failure -> FALL BACK to
          deterministic lexical order (never raises; offline byte-identical).
+         Scores are strict finite floats (FB-M2.2-1/6): NaN/±inf and
+         type-smuggled input are REJECTED at the schema — compliance note: a
+         provider emitting such garbage now lands on lexical fallback (the
+         contract's "schema-validated, never raises" intent is satisfied, not
+         violated).
        - NoOp/default ranker -> candidates unchanged (pure lexical path).
    - Embedding seam (declared, optional, NOT consumed by default ordering):
        async def embed(self, texts: list[str]) -> list[list[float]]
@@ -95,17 +106,25 @@ B) New kernel module src/jarvis/kernel/memory_retrieval.py (deterministic core)
        sim-score. No kernel dependency on it; no vector store.
 
 C) Facade (additive)
-   Memory.retrieve(query, *, limit=3, ranker=None) -> list[RankedMemory]
+   Memory.retrieve(query, *, limit=3, ranker=None, log=None,
+     principal_id="creator") -> list[RankedMemory]
      delegates to module B.retrieve over the SAME combined view as recall().
+     log= defaults to the facade's OWN EventLog (FB-M2.2-4): the natural
+     `Memory(log=log).retrieve(..., ranker=...)` always audits a real rerank.
    Memory.recall() REMAINS UNTOUCHED (M2.1 facade bit-identical; existing
    21 M2.1 tests + 20 probes keep passing verbatim).
 
 D) Model rerank audit (evidence for M2.9 ledger)
    When a model rerank actually RUNS (bound provider + successful response),
    append ONE audit event "memory.retrieve.reranked" on stream "memory"
-   (payload: provider_id, contract_id/version, candidate_event_ids, limit).
-   Does NOT enter MemoryIndex folds (memories/traces predicates unchanged;
-   digest inputs unchanged). No rerank -> no event (offline logs unchanged).
+   (payload: provider_id, contract_id/version, candidate_event_ids, limit;
+   author = caller principal, default "creator"). Audit NEVER enters the
+   memories/traces folds (fold predicates unchanged). AMENDED on
+   reconciliation (FB-M2.2-3, creator sign-off 2026-09-19): ANY appended event
+   bumps the append-position metadata that the M2.1 projection digest hashes
+   (last_seq/event_count/streams — same sensitivity as M2.1 treats traces), so
+   the promise is FOLD-CONTENT stability, not digest-VALUE stability.
+   No rerank -> no event (offline logs unchanged).
 
 E) CLI: NO new surface in M2.2. `jarvis recall` stays exactly as M2.1 (contract
    E unchanged). The rerank seam is exercised by tests/M2.3+, not by a new flag.

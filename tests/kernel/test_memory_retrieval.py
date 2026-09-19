@@ -6,6 +6,7 @@ import pytest
 
 from jarvis.kernel.event_log import EventLog
 from jarvis.kernel.memory_api import Memory
+from jarvis.kernel.memory_index import MemoryIndex
 from jarvis.kernel.memory_projection import MemoryProjection
 from jarvis.kernel.memory_query import recall as module11_recall
 from jarvis.kernel.memory_retrieval import (
@@ -244,7 +245,7 @@ async def test_model_rerank_reorders_and_audits(tmp_path):
     assert len(audit.payload["candidate_event_ids"]) == 2
 
 
-async def test_rerank_audit_requires_log(tmp_path):
+async def test_rerank_audit_uses_facade_log_by_default(tmp_path):
     log = _log(tmp_path)
     _seed_with_rerank(log)
     registry = CapabilityRegistry()
@@ -255,7 +256,23 @@ async def test_rerank_audit_requires_log(tmp_path):
 
     await Memory(log=log).retrieve("umbrella tool", limit=3, ranker=ranker)
 
-    assert [event.event_type for event in log.replay()] == [
+    audits = [e for e in log.replay() if e.event_type == MEMORY_RETRIEVE_RERANKED]
+    assert len(audits) == 1
+
+
+async def test_rerank_without_facade_log_writes_no_audit(tmp_path):
+    log = _log(tmp_path)
+    _seed_with_rerank(log)
+    registry = CapabilityRegistry()
+    registry.register_provider("creator", _rerank_binding())
+    fake = _DrainingAdapter([{"scores": [1.0, 0.0]}])
+    gateway = ModelGateway(resolver=registry, adapters={"model.adapter": fake})
+    ranker = ModelRetrievalRanker(gateway)
+
+    memory = Memory(index=MemoryIndex.rebuild(log))
+    await memory.retrieve("umbrella tool", limit=3, ranker=ranker)
+
+    assert [e.event_type for e in log.replay()] == [
         "memory.write.proposed",
         "memory.write.verified",
         "memory.write.committed",

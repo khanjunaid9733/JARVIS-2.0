@@ -25,17 +25,24 @@ ratified by the creator 2026-09-19):
    via the gateway `RERANK` role, routed through caller-supplied route DATA
    (`M2_ROLE_CONTRACTS`). ANY gateway failure (no provider, transport,
    validation exhaustion, adapter error) falls back to the deterministic
-   lexical order — never raises.
+   lexical order — never raises. Scores are validated STRICT and finite
+   (FB-M2.2-1/6): NaN/±inf and type-smuggled bool/int/str input is rejected at
+   the schema and therefore lands on the same lexical fallback — never a
+   rerank, never an audit.
 4. `Embedder` — the declared embed seam. Route DATA exists (`memory.embed`)
    but no consumer calls it in M2.2; the binding decision is M2.9 / creator.
 5. Audit (`memory.retrieve.reranked`): recorded ONLY when a model rerank
    actually runs (provider bound + successful response), so offline logs carry
-   no rerank events and the retriever needs no log to be deterministic.
+   no rerank events and the retriever needs no log to be deterministic. The
+   audit event NEVER enters the memories/traces folds. (Contract D amendment
+   per reconciliation FB-M2.2-3: the M2.1 state digest stays
+   append-position-sensitive — ANY appended event bumps last_seq/event_count —
+   so the promise is fold-content stability, not digest-value stability.)
 """
 
-from typing import Any, Literal, Protocol
+from typing import Annotated, Any, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .event_log import Event, EventLog
 from .memory_query import RecalledMemory, recall as _lexical_recall
@@ -59,9 +66,14 @@ M2_ROLE_CONTRACTS: dict[RoleContract, tuple[str, str]] = {
 
 
 class RankedMemory(BaseModel):
-    """A retrieval hit with its fold provenance (FB-1 discriminator)."""
+    """A retrieval hit with its fold provenance (FB-1 discriminator).
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    Strict schema: fields are exactly typed (no bool/int/str coercion); the
+    union-merge rule for an id present in BOTH folds is memories-win-both-
+    content-and-tier, so the served content and the tier tag can never disagree.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     event_id: str
     content: str
@@ -111,11 +123,18 @@ class NoOpRanker:
 
 
 class RerankScores(BaseModel):
-    """Schema-constrained rerank output (ADR-006 validated locally)."""
+    """Schema-constrained rerank output (ADR-006 validated locally).
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    Strict floats, finite only (FB-M2.2-1/6 reconciliation): bool/int/numeric-
+    string coercion AND NaN/±inf are rejected at the schema, so garbage lands
+    on validation retry → `validation_exhausted` → the deterministic lexical
+    fallback, never a rerank and never an audit. Finite out-of-[0,1] values
+    stay accepted (a provider's preference scale is its own, per Freebuff E10).
+    """
 
-    scores: list[float]
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    scores: list[Annotated[float, Field(allow_inf_nan=False)]]
 
 
 class ModelRetrievalRanker:
@@ -176,7 +195,11 @@ class ModelRetrievalRanker:
 
         pairs = sorted(
             zip(candidates, scores),
-            key=lambda pair: (-round(float(pair[1]), 4), pair[0].event_id),
+            key=lambda pair: (
+                -round(float(pair[1]), 4),
+                TIER_ORDER[pair[0].tier],
+                pair[0].event_id,
+            ),
         )
         reranked = [
             candidate.model_copy(update={"score": round(float(score), 4)})
@@ -224,19 +247,34 @@ async def retrieve(
     limit: int = 3,
     ranker: RetrievalRanker | None = None,
     log: EventLog | None = None,
+    principal_id: str = CREATOR_PRINCIPAL_ID,
 ) -> list[RankedMemory]:
     """Deterministic retrieval over the memory + trace union (M2.2 core).
 
     Lexical funnel is module-11 over the same combined view M2.1 recall uses;
     total order is (-score, tier_order, event_id). `ranker` may reorder via the
     model fabric (§131.14); a real rerank is audited to `log` only when it runs.
+    `principal_id` authors the audit event (FB-M2.2-7). Fold maps must map
+    event_id → payload dict; anything else is a typed `ValueError`.
     """
     if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
         raise ValueError("limit must be a positive integer")
 
-    combined: dict[str, dict[str, Any]] = {**memories, **traces}
+    # Union-merge rule (FB-M2.2-5): on an id present in both folds, memories win
+    # BOTH content and tier — a raw trace can never be served as a verified
+    # memory, and the served content always agrees with the tier tag.
+    combined: dict[str, dict[str, Any]] = dict(memories)
+    for event_id, payload in traces.items():
+        combined.setdefault(event_id, payload)
+    try:
+        view = _UnionView(memories=combined)
+    except ValidationError as exc:
+        raise ValueError(
+            "retrieve() fold maps must map event_id to payload dicts"
+        ) from exc
+
     lexical: list[RecalledMemory] = _lexical_recall(
-        _UnionView(memories=combined), query, limit=len(combined)
+        view, query, limit=len(combined)
     )
     ranked: list[RankedMemory] = []
     for hit in lexical:
@@ -262,7 +300,7 @@ async def retrieve(
             Event(
                 stream_id=MEMORY_STREAM_ID,
                 event_type=MEMORY_RETRIEVE_RERANKED,
-                principal_id=CREATOR_PRINCIPAL_ID,
+                principal_id=principal_id,
                 payload={
                     "provider_id": result.provider_id,
                     "contract_id": result.contract_id,
