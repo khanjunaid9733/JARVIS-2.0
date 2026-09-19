@@ -244,5 +244,7 @@ ratified contract as follows:
 9. **`promote.order` (log | confidence_desc)** (FB-M2.3-9): which candidates fill a
    `max_promotions` cap. Contract §B amended.
 
-- [ ] **Ratify amendment record items 1–9** (creator) — see
+- [x] **Ratify amendment record items 1–9 — 2026-09-19 (creator).** Product-exclusion
+  default and `supersede_refine_gap` (item 4) and `promote.order` (item 9) accepted
+  as the reconciliation semantics; merge approved. See
   `docs/M2_3_RECONCILIATION.md` for evidence and decision rationale.
