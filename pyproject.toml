@@ -16,7 +16,10 @@ dependencies = [
 # Red-team finding F8: pytest was never declared, so `uv run pytest` could
 # silently resolve a system PATH pytest under an interpreter below the
 # ADR-008 pin floor. Declaring it pins the suite to the project venv.
-dev = ["pytest>=9,<10"]
+dev = [
+    "pytest>=9,<10",
+    "pyyaml>=6.0,<7",  # creator-ruled 2026-09-19: tests/test_project_state.py guard
+]
 
 [project.scripts]
 jarvis = "jarvis.cli:main"

@@ -1,7 +1,7 @@
 # M2.2 — Audit + Red-Team Reconciliation & Closure
 
 **Package:** M2.2 (embedding + retrieval seams) — `docs/M2_2_KICKOFF.md` (items A–E, ratified 2026-09-19).
-**Branch:** `task/m2.2`. Post-reconciliation commit: **78d59d3** (see git log).
+**Branch:** `task/m2.2`. Post-reconciliation commit: **bf0b762** (see git log).
 **Independent verification:** `docs/M2_2_AUDIT.md` (Antigravity) — `VERDICT: M2_2_RECONCILIATION_REQUIRED`.
 **Adversarial red-team:** `docs/M2_2_REDTEAM_FB.md` (Freebuff) — `M2_2_RECONCILIATION_REQUIRED`, 36 probes in `tests/review/test_freebuff_redteam_m2_2.py`.
 **Suite:** 332 (M2.1) → 348 (+16 kernel) → **385 passed** (348 + 37 probes; +1 from splitting one leak-test).
@@ -29,7 +29,7 @@ Both independent passes converged on the same set; every HIGH/MEDIUM finding is 
 
 ## 2. Probe disposition (`tests/review/test_freebuff_redteam_m2_2.py`)
 
-36 probes reconcile to regression pins. The 10 `# FLIPS ON FIX` assertions (B2, C1, C3, E1, E2, E8, E9, F1, F5, F6, H2 → **11**) were flipped to assert the FIXED behavior; the remaining 25 adversarial PASS probes (hermeticity A1/A2/A5, module-11 parity A3, offline no-dial/audit A4/E3–E7, order B1/B3, literal/extra schema C2, seam D1–D3, finite-negatives E10, bounded limit E12, custom-ranker propagation E13, payload parity H1, unicode parity H3, fold-image F2–F4) are retained as regression pins. A11 probes pass; the immediate-family ones (B1/B3, D1–D3, F3) are contract-compliance pins.
+36 probes reconcile to regression pins. The 11 `# FLIPS ON FIX` assertions (B2, C1, C3, E1, E2, E8, E9, F1, F5, F6, H2) were flipped to assert the FIXED behavior; the remaining 25 adversarial PASS probes (hermeticity A1/A2/A5, module-11 parity A3, offline no-dial/audit A4/E3–E7, order B1/B3, literal/extra schema C2, seam D1–D3, finite-negatives E10, bounded limit E12, custom-ranker propagation E13, payload parity H1, unicode parity H3, fold-image F2–F4) are retained as regression pins. All probes pass; the immediate-family ones (B1/B3, D1–D3, F3) are contract-compliance pins.
 
 ## 3. Semantics deliberately NOT changed (documented boundaries)
 

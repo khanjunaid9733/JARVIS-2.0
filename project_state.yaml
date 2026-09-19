@@ -55,13 +55,13 @@ status:
   m1_gate_review_predecessor: "superseded"  # earlier request docs/M1_REDTEAM_REQUEST.md targeted main @ 814d8bd in worktree F:\JARVIS-rt-m1 (branch review/m1-gate @ a6a16aa); superseded by the df72c4a freeze (M6 carry-over + s112 fix now in scope)
   m1_must_tier_verification: "antigravity_verified_cross_environment_confirmed_f8d8a77"  # 2026-09-18: independent read-only audit of all 12 s134.1 MUST items + NAT-01..05 + s112 subset on main @ f8d8a77; 231 passed; verdict CROSS_ENVIRONMENT_CONFIRMED: M1_MUST_TIER_COMPLETE. Gate remains open pending Freebuff red-team + creator sign-off
   m2_memory_os:
-  status: "m2_2_completed"  # 2026-09-19; M2.2 (embed/retrieval seams) merged to main @ e417de3; 385 passed; contract ratified docs/M2_2_KICKOFF.md (A-E); audit + red-team reconciled docs/M2_2_RECONCILIATION.md (FB-M2.2-1..8, F-M2.2-1 resolved; FB-M2.2-9/10 accepted)
-  creator_rulings_accepted:  # 2026-09-19
-    - "FB-1 recall tier distinction -> DEFERRED to M2.2 (RecalledMemory frozen; rerank seam carries tier/verification)"
-    - "FB-2 dual NAT-03 digest -> MemoryIndex.digest() becomes the single memory-tract digest when M2.10 recovery folds providers; module-7 digest remains frozen M1 ledger digest"
-    - "FB-6 refused-trace asymmetry -> ACCEPTED + documented (no memory.trace.rejected)"
-    - "FB-M2.2-3 -> RULING (2026-09-19): contract D reworded to 'fold-content stability' (audit never enters folds); digest VALUE is append-position-sensitive for ANY appended event (same M2.1 semantics as traces). OpenPipeline RERANK: strict finite schema pad_reason at freeze"
-  packages: "M2.1 memory API + episodic trace (DONE) | M2.2 emb/retrieval seams (DONE: rerank + embed seams, tier/kind on hits) | M2.3 consolidation (NEXT) | M2.4 verification | M2.5 PII seam | M2.6 FS effect + sandbox | M2.7 manifest compilation + DAG | M2.8 key authority | M2.9 budgets/rate limits | M2.10 checkpoints (single memory digest)"  # full list in docs/M2_KICKOFF.md
+    status: "m2_2_completed"  # 2026-09-19; M2.2 (embed/retrieval seams) merged to main @ e417de3; 385 passed; contract ratified docs/M2_2_KICKOFF.md (A-E); audit + red-team reconciled docs/M2_2_RECONCILIATION.md (FB-M2.2-1..8, F-M2.2-1 resolved; FB-M2.2-9/10 accepted)
+    creator_rulings_accepted:  # 2026-09-19
+      - "FB-1 recall tier distinction -> DEFERRED to M2.2 (RecalledMemory frozen; rerank seam carries tier/verification)"
+      - "FB-2 dual NAT-03 digest -> MemoryIndex.digest() becomes the single memory-tract digest when M2.10 recovery folds providers; module-7 digest remains frozen M1 ledger digest"
+      - "FB-6 refused-trace asymmetry -> ACCEPTED + documented (no memory.trace.rejected)"
+      - "FB-M2.2-3 -> RULING (2026-09-19): contract D reworded to 'fold-content stability' (audit never enters folds); digest VALUE is append-position-sensitive for ANY appended event (same M2.1 semantics as traces)"
+    packages: "M2.1 memory API + episodic trace (DONE) | M2.2 emb/retrieval seams (DONE: rerank + embed seams, tier/kind on hits) | M2.3 consolidation (NEXT) | M2.4 verification | M2.5 PII seam | M2.6 FS effect + sandbox | M2.7 manifest compilation + DAG | M2.8 key authority | M2.9 budgets/rate limits | M2.10 checkpoints (single memory digest)"  # full list in docs/M2_KICKOFF.md
   m3_missions: "not_started"
   m4_multimodal: "not_started"
   m5_robotics: "not_started"
@@ -116,7 +116,7 @@ m1_definition_of_done:
   disclosed_deviations:
     - "model backend is remote OpenAI-compatible (Groq) per ADR-010, not a local Ollama adapter as s134.1 literally names"
     - "jarvis say question path is model-backed when JARVIS_MODEL_API_KEY/BASE_URL/NAME are configured; deterministic extractive otherwise (module-6 adapter default llama-3.3-70b-versatile is decommissioned on Groq — M1.1 picks openai/gpt-oss-120b via JARVIS_MODEL_NAME)"
-    - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)
+    - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)"
 
 current_task:
   status: "m2_2_completed"
