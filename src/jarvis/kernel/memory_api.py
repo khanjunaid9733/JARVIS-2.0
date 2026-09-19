@@ -9,6 +9,8 @@ so ordering stays module-11's total order (-score, event_id) and behavior is
 bit-identical to module 11 whenever no traces exist.
 
 M2.1 recall is NOT embedding/rerank-ranked — that ranking seam is M2.2.
+`retrieve()` (M2.2, additive) adds ranked hits with fold tier/verification and
+an optional model-backed rerank seam over the SAME combined view.
 `get()` and `digest()` expose the underlying `MemoryIndex` fold.
 """
 
@@ -20,6 +22,7 @@ from .event_log import EventLog
 from .memory_index import MemoryIndex
 from .memory_projection import MemoryProjection
 from .memory_query import RecalledMemory, recall as _index_recall
+from .memory_retrieval import RankedMemory, RetrievalRanker, retrieve as _retrieve
 
 
 class _CombinedView(BaseModel):
@@ -68,6 +71,35 @@ class Memory:
         if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
             raise ValueError("limit must be a positive integer")
         return _index_recall(_CombinedView(memories=self._combined()), query, limit=limit)
+
+    async def retrieve(
+        self,
+        query: str,
+        *,
+        limit: int = 3,
+        ranker: RetrievalRanker | None = None,
+        log: EventLog | None = None,
+    ) -> list[RankedMemory]:
+        """M2.2 additive seam: ranked retrieval over the same combined view as
+        `recall()`, with fold tier/verification per hit (FB-1) and an optional
+        model-backed reranker. `recall()` is untouched."""
+        if self._index is not None:
+            return await _retrieve(
+                self._index.memories,
+                self._index.traces,
+                query,
+                limit=limit,
+                ranker=ranker,
+                log=log,
+            )
+        return await _retrieve(
+            dict(self._projection.memories),  # type: ignore[union-attr]
+            {},
+            query,
+            limit=limit,
+            ranker=ranker,
+            log=log,
+        )
 
     def get(self, event_id: str) -> dict[str, Any] | None:
         if self._index is not None:
