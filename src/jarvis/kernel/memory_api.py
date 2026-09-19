@@ -24,6 +24,7 @@ from .memory_index import MemoryIndex
 from .memory_projection import MemoryProjection
 from .memory_query import RecalledMemory, recall as _index_recall
 from .memory_retrieval import RankedMemory, RetrievalRanker, retrieve as _retrieve
+from .memory_verify import MemoryVerifier, VerificationPolicy, VerificationResult
 
 
 class _CombinedView(BaseModel):
@@ -131,6 +132,31 @@ class Memory:
         return MemoryConsolidator(
             self._log, policy=policy, principal_id=principal_id
         ).consolidate()
+
+    def verify(
+        self,
+        paths: list[str] | None = None,
+        *,
+        evidence: list[str] | None = None,
+        policy: VerificationPolicy | None = None,
+    ) -> VerificationResult:
+        """M2.4 additive seam (kickoff item F): verification ladder rungs 2-3
+        (§84.4) over the same frozen module-10 write path the M2.3 writer
+        commits through.
+
+        Deterministic and hermetic by default: the cheap rung is the frozen
+        `DoneGate` the writer already evaluates; the semantic and independent
+        rungs HOLD for rungs-2/3 impact classes UNLESS the policy carries an
+        adapter-backed provider (optim-in, never ambient, never auto-prompting
+        — F-C9 / §131.14 precedent). `verify()` performs no effects and emits
+        no new event types; `after memory.write` logs are untouched.
+
+        Requires an EventLog (same precedence as `consolidate()`)."""
+        if self._log is None:
+            raise ValueError("Memory.verify requires an EventLog")
+        return MemoryVerifier(self._log, policy=policy).verify(
+            paths, evidence=evidence
+        )
 
     def get(self, event_id: str) -> dict[str, Any] | None:
         if self._index is not None:
