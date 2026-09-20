@@ -36,6 +36,7 @@ from .authority import (
     is_creator_gated,
 )
 from .evidence import (
+    Clock,
     Evidence,
     EvidenceLedger,
     EvidencePrecedence,
@@ -43,13 +44,16 @@ from .evidence import (
     VerificationResult,
 )
 from .lifecycle import (
+    LifecycleDecision,
     LifecycleEvent,
     LifecycleState,
     LifecycleTransition,
     TaskLifecycle,
+    lifecycle_decision,
     lifecycle_transitions,
 )
 from .mutation_guard import (
+    BlobReader,
     MutationGuard,
     MutationReport,
     PackageSnapshot,
@@ -71,11 +75,14 @@ from .supervisor import (
 __all__ = [
     "Acceptor",
     "AuthorityTier",
+    "BlobReader",
+    "Clock",
     "EscalationReason",
     "Evidence",
     "EvidenceLedger",
     "EvidencePrecedence",
     "EvidenceSource",
+    "LifecycleDecision",
     "LifecycleEvent",
     "LifecycleState",
     "LifecycleTransition",
@@ -94,5 +101,6 @@ __all__ = [
     "decide_authority_tier",
     "decide_recovery",
     "is_creator_gated",
+    "lifecycle_decision",
     "lifecycle_transitions",
 ]

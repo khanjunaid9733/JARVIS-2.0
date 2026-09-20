@@ -26,7 +26,12 @@ import enum
 from dataclasses import dataclass, field
 from typing import Protocol, Mapping, Sequence
 
-from .authority import AuthorityTier, decide_authority_tier, is_creator_gated
+from .authority import (
+    AuthorityTier,
+    EscalationReason,
+    decide_authority_tier,
+    is_creator_gated,
+)
 from .evidence import (
     Evidence,
     EvidenceLedger,
