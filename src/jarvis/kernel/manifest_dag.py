@@ -13,21 +13,33 @@ Invariants:
 2. Strict Acyclicity: Any dependency cycle is detected and rejected with a
    typed `ManifestCycleError` detailing the exact cycle path.
 3. Resource Lock Isolation:
+   - Lock keys are compared through a canonical key (`canonical_resource_key`):
+     the whole key is casefolded. That folds a URI scheme (RFC 3986 3.1, a scheme
+     is case-insensitive) and is a deliberate over-approximation on
+     case-sensitive filesystems - it costs parallelism, never safety, and it is
+     what keeps a compiled digest identical across hosts.
+   - Lock keys are hierarchical when slash-terminated: key `dir/` denotes a
+     directory and contains `dir/sub/file.txt`, so a write on either excludes the
+     other. A key without a trailing slash is opaque and contains nothing - which
+     is what keeps `dir/` from swallowing the sibling prefix `dir2/`.
    - Shared read locks on the same resource key allow concurrent execution in the same wave.
    - Exclusive write locks require mutual exclusion: any two effects where at
-     least one holds an exclusive write lock on resource R are scheduled into
-     distinct sequential execution stages.
+     least one holds an exclusive write lock on a related resource R are
+     scheduled into distinct sequential execution stages.
 4. Deterministic Tie-Breaking: When multiple effects are topologically ready and
    conflict-free, they are sorted alphabetically by their unique node ID.
-5. Strictly Additive: Extends module 3 / `intent.py` ABI without altering existing
+5. Identity: an effect id is a non-empty token without surrounding whitespace.
+6. Stage Records: `ExecutionStage.read_locks` / `write_locks` always record the
+   keys as DECLARED. Canonicalisation is for conflict comparison only.
+7. Strictly Additive: Extends module 3 / `intent.py` ABI without altering existing
    frozen kernel modules.
 """
 
 import enum
 import hashlib
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .event_log import _canonical_json
 from .intent import Manifest
@@ -54,6 +66,35 @@ class ResourceLock(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Canonical Resource Keys
+# ---------------------------------------------------------------------------
+
+def canonical_resource_key(resource: str) -> str:
+    """Folds a declared lock key to its canonical COMPARISON form.
+
+    The fold is total and platform-independent: the whole key is casefolded, so
+    the URI scheme folds and so does the remainder. On a case-sensitive
+    filesystem two paths differing only in case are genuinely two resources, so
+    folding there serialises two effects that could have run together. That is a
+    deliberate over-approximation on the side of safety, and it is what keeps a
+    compiled digest identical across hosts.
+
+    Used for CONFLICT COMPARISON ONLY. `ExecutionStage.read_locks` and
+    `ExecutionStage.write_locks` always record the keys as declared.
+    """
+    return resource.strip().casefold()
+
+
+def _key_contains(parent: str, child: str) -> bool:
+    """True if canonical key `parent` denotes a directory holding `child`.
+
+    Only a slash-terminated key denotes a directory. The trailing separator is
+    load-bearing: it is what stops `dir/` from claiming the sibling `dir2/x.txt`.
+    """
+    return parent.endswith("/") and child != parent and child.startswith(parent)
+
+
+# ---------------------------------------------------------------------------
 # Effect Node Definition
 # ---------------------------------------------------------------------------
 
@@ -69,6 +110,23 @@ class EffectNode(BaseModel):
     read_locks: tuple[str, ...] = Field(default_factory=tuple)
     write_locks: tuple[str, ...] = Field(default_factory=tuple)
     args: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("id")
+    @classmethod
+    def _id_must_be_a_normalised_token(cls, value: str) -> str:
+        """An effect id is an identity: non-empty, and not padded.
+
+        A blank id produces unreadable cycle traces, and a padded id lets two
+        nodes be distinct by invisible characters alone (duplicate detection is
+        exact equality).
+        """
+        if not value.strip():
+            raise ValueError("effect id must not be blank")
+        if value != value.strip():
+            raise ValueError(
+                f"effect id {value!r} must not carry surrounding whitespace"
+            )
+        return value
 
 
 # ---------------------------------------------------------------------------
@@ -165,9 +223,9 @@ def validate_acyclic(nodes: Sequence[EffectNode]) -> dict[str, set[str]]:
     deps: dict[str, set[str]] = {}
     for node in nodes:
         # Check lock conflicts within single node
-        read_set = set(node.read_locks)
-        write_set = set(node.write_locks)
-        overlap = read_set.intersection(write_set)
+        read_keys = {canonical_resource_key(r) for r in node.read_locks}
+        write_keys = {canonical_resource_key(w) for w in node.write_locks}
+        overlap = read_keys.intersection(write_keys)
         if overlap:
             raise ConflictingLockDeclarationError(node.id, sorted(overlap)[0])
 
@@ -219,9 +277,15 @@ def _has_lock_conflict(
     stage_reads: set[str],
     stage_writes: set[str],
 ) -> bool:
-    """Checks whether a candidate node conflicts with locks already held in a stage."""
-    cand_reads = set(node.read_locks)
-    cand_writes = set(node.write_locks)
+    """Checks whether a candidate node conflicts with locks already held in a stage.
+
+    `stage_reads` / `stage_writes` hold CANONICAL keys. Two locks conflict when
+    their canonical keys are related - equal, or one being a directory key that
+    contains the other - and at least one of them is an exclusive write. Shared
+    reads never conflict, at any depth of containment.
+    """
+    cand_reads = {canonical_resource_key(r) for r in node.read_locks}
+    cand_writes = {canonical_resource_key(w) for w in node.write_locks}
 
     # Write-Write conflict
     if cand_writes.intersection(stage_writes):
@@ -232,6 +296,20 @@ def _has_lock_conflict(
     # Read-Write conflict (candidate reads, stage writes)
     if cand_reads.intersection(stage_writes):
         return True
+
+    # Directory containment, candidate writes: excludes any held lock inside the
+    # directory and any held directory holding the candidate.
+    for cand_write in cand_writes:
+        for held in stage_writes.union(stage_reads):
+            if _key_contains(cand_write, held) or _key_contains(held, cand_write):
+                return True
+
+    # Directory containment, candidate reads: only an exclusive held WRITE can
+    # exclude them (a directory of shared readers is still shared).
+    for cand_read in cand_reads:
+        for held_write in stage_writes:
+            if _key_contains(cand_read, held_write) or _key_contains(held_write, cand_read):
+                return True
 
     return False
 
@@ -270,13 +348,22 @@ def plan_execution_stages(nodes: Sequence[EffectNode]) -> tuple[ExecutionStage, 
         stage_effects: list[str] = []
         stage_reads: set[str] = set()
         stage_writes: set[str] = set()
+        # Canonical mirrors, compared against but never recorded.
+        held_read_keys: set[str] = set()
+        held_write_keys: set[str] = set()
 
         for cand_id in ready_candidates:
             cand_node = node_map[cand_id]
-            if not _has_lock_conflict(cand_node, stage_reads, stage_writes):
+            if not _has_lock_conflict(cand_node, held_read_keys, held_write_keys):
                 stage_effects.append(cand_id)
                 stage_reads.update(cand_node.read_locks)
                 stage_writes.update(cand_node.write_locks)
+                held_read_keys.update(
+                    canonical_resource_key(r) for r in cand_node.read_locks
+                )
+                held_write_keys.update(
+                    canonical_resource_key(w) for w in cand_node.write_locks
+                )
 
         if not stage_effects:
             raise RuntimeError("Deadlock in stage planning: could not schedule any candidate")
@@ -355,6 +442,29 @@ def compile_manifest_dag(
 # Manifest Adapter Entrypoint
 # ---------------------------------------------------------------------------
 
+def _iter_string_leaves(value: Any) -> Iterator[str]:
+    """Yields every string reachable inside a container, at any depth.
+
+    A contract reference is a reference wherever it appears, so the walk is
+    recursive over mappings and sequences rather than one level deep.
+
+    Known limitation, left documented rather than papered over: matching is
+    still plain string equality against contract ids, so an incidental argument
+    that happens to spell a sibling contract's id still creates an edge. Recursion
+    widens the reach of that heuristic rather than removing it; closing it
+    properly means requiring a declared reference, which is a design change, not a
+    walk change. See `tests/review/test_freebuff_invariants_m2_7.py`.
+    """
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, Mapping):
+        for nested in value.values():
+            yield from _iter_string_leaves(nested)
+    elif isinstance(value, (list, tuple, set, frozenset)):
+        for item in value:
+            yield from _iter_string_leaves(item)
+
+
 def build_dag_from_manifest(manifest: Manifest) -> list[EffectNode]:
     """Converts a standard `jarvis.kernel.intent.Manifest` into a list of `EffectNode`s.
 
@@ -380,14 +490,11 @@ def build_dag_from_manifest(manifest: Manifest) -> list[EffectNode]:
                 if isinstance(d, str):
                     explicit_deps.add(d)
 
-        # Search for contract references in args values
+        # Search for contract references anywhere inside args values, at any depth
         for val in args.values():
-            if isinstance(val, str) and val in contract_id_set and val != rc.id:
-                explicit_deps.add(val)
-            elif isinstance(val, (list, tuple, set)):
-                for item in val:
-                    if isinstance(item, str) and item in contract_id_set and item != rc.id:
-                        explicit_deps.add(item)
+            for candidate in _iter_string_leaves(val):
+                if candidate in contract_id_set and candidate != rc.id:
+                    explicit_deps.add(candidate)
 
         # 2. Extract resource locks
         raw_reads = args.get("read_locks") or args.get("_read_locks") or []
@@ -433,6 +540,7 @@ __all__ = [
     "ManifestCycleError",
     "ResourceLock",
     "build_dag_from_manifest",
+    "canonical_resource_key",
     "compile_from_manifest",
     "compile_manifest_dag",
     "plan_execution_stages",
