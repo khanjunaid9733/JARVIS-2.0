@@ -1,9 +1,9 @@
 # JARVIS 2.0 — COMPREHENSIVE ROADMAP & REMAINING WORK
 
 > **Repository Root:** `F:\JARVIS2.0`  
-> **Active Branch:** `task/supervisor` @ `9c2b265`  
+> **Active Branch:** `task/supervisor` @ `5b0a792`  
 > **Last Verified:** September 21, 2026  
-> **Test Suite Status:** **758 passed in 43.29s**, 0 failed (100% GREEN)  
+> **Test Suite Status:** **766 passed in 40.92s**, 0 failed (100% GREEN)  
 > **Orchestrator State:** `F:\JARVIS_ORCHESTRATOR_STATE\`
 
 ---
@@ -38,7 +38,8 @@ The core architecture follows the foundational principle: **"The model proposes;
 | **M2.6: Hermetic Filesystem Effect & Sandbox** | `c908ea4` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 692 passed |
 | **M2.7: Manifest Compilation & DAG Validation** | `31d7a55` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 721 passed |
 | **M2.8: Key-Based Creator Authority** | `8a481c2` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 744 passed |
-| **M2.9: Dynamic Budgets & Circuit Breakers** | `9c2b265` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **758 passed** |
+| **M2.9: Dynamic Budgets & Circuit Breakers** | `9c2b265` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 758 passed |
+| **M2.10: Unified Memory Checkpoint & Single State Digest** | `5b0a792` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **766 passed** |
 | **M3.1: Autonomous Engineering Supervisor** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 548 passed |
 | **M3.2: Multi-Step Mission Execution Loop** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 564 passed |
 | **M3.3: Dynamic Worker Orchestration & L7 Bridges** | `ce605bc` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 629 passed |
@@ -127,11 +128,11 @@ The core architecture follows the foundational principle: **"The model proposes;
 - [x] Automatic trip to `HOLD` when error rates exceed threshold.
 - [x] Unit tests: Invariant tests under simulated provider outages and token exhaustion (14 tests).
 
-#### 6. M2.10 — Unified Memory Checkpoint & Single State Digest (`src/jarvis/kernel/checkpoint.py`)
-- [ ] Unify `MemoryIndex.digest()` with `MemoryProjection.digest()`.
-- [ ] Implement incremental checkpointing: snapshot projection state to disk with hash chain verification.
-- [ ] Cold-start hydration: restart from checkpoint + replay tail of event log.
-- [ ] Unit tests: Prove cold-start recovery produces byte-identical memory state in <100ms.
+#### 6. M2.10 — Unified Memory Checkpoint & Single State Digest (`src/jarvis/kernel/checkpoint.py`) [COMPLETED & FROZEN]
+- [x] Unify `MemoryIndex.digest()` with `MemoryProjection.digest()` into single memory-tract digest (FB-2 / NAT-03).
+- [x] Implement incremental checkpointing: snapshot projection state to disk with hash chain verification.
+- [x] Cold-start hydration: restart from checkpoint + replay tail of event log.
+- [x] Unit tests: Prove cold-start recovery produces byte-identical memory state in <100ms (8 tests).
 
 ---
 
