@@ -55,14 +55,14 @@ status:
   m1_gate_review_predecessor: "superseded"  # earlier request docs/M1_REDTEAM_REQUEST.md targeted main @ 814d8bd in worktree F:\JARVIS-rt-m1 (branch review/m1-gate @ a6a16aa); superseded by the df72c4a freeze (M6 carry-over + s112 fix now in scope)
   m1_must_tier_verification: "antigravity_verified_cross_environment_confirmed_f8d8a77"  # 2026-09-18: independent read-only audit of all 12 s134.1 MUST items + NAT-01..05 + s112 subset on main @ f8d8a77; 231 passed; verdict CROSS_ENVIRONMENT_CONFIRMED: M1_MUST_TIER_COMPLETE. Gate remains open pending Freebuff red-team + creator sign-off
   m2_memory_os:
-    status: "m2_7_completed"  # 2026-09-21; M2.7 (manifest compilation & DAG validation) verified & accepted; 721 passed
+    status: "m2_8_completed"  # 2026-09-21; M2.8 (key-based creator authority) verified & accepted; 744 passed
     creator_rulings_accepted:  # 2026-09-19
       - "FB-1 recall tier distinction -> DEFERRED to M2.2 (RecalledMemory frozen; rerank seam carries tier/verification)"
       - "FB-2 dual NAT-03 digest -> MemoryIndex.digest() becomes the single memory-tract digest when M2.10 recovery folds providers; module-7 digest remains frozen M1 ledger digest"
       - "FB-6 refused-trace asymmetry -> ACCEPTED + documented (no memory.trace.rejected)"
       - "FB-M2.2-3 -> RULING (2026-09-19): contract D reworded to 'fold-content stability' (audit never enters folds); digest VALUE is append-position-sensitive for ANY appended event (same M2.1 semantics as traces)"
       - "M2.3 amendments 1-9 -> RATIFIED (2026-09-19): one consolidation one principal; any_key_same_source gate; supersession bookkeeping from committed provenance (audit=False bounded); consolidation-products excluded from same-key supersession unless supersede_refine_gap declared; sticky memory.consolidate.rejected marker; fold-content E.4 wording; distinct exact/lower/fold normalize; provenance-shape-guarded refs; promote.order datum"
-    packages: "M2.1 memory API + episodic trace (DONE) | M2.2 emb/retrieval seams (DONE) | M2.3 consolidation (DONE) | M2.4 verification (DONE) | M2.5 PII seam (DONE) | M2.6 FS effect + sandbox (DONE) | M2.7 manifest compilation + DAG (DONE) | M2.8 key authority (NEXT) | M2.9 budgets/rate limits | M2.10 checkpoints (single memory digest)"  # full list in docs/M2_KICKOFF.md
+    packages: "M2.1 memory API + episodic trace (DONE) | M2.2 emb/retrieval seams (DONE) | M2.3 consolidation (DONE) | M2.4 verification (DONE) | M2.5 PII seam (DONE) | M2.6 FS effect + sandbox (DONE) | M2.7 manifest compilation + DAG (DONE) | M2.8 key authority (DONE) | M2.9 budgets/rate limits (NEXT) | M2.10 checkpoints (single memory digest)"  # full list in docs/M2_KICKOFF.md
   m3_missions: "m3_5_completed"  # 2026-09-21; M3 Orchestrator (M3.1-M3.5) complete, verified & frozen; 664 passed
   m4_multimodal: "not_started"
   m5_robotics: "not_started"
@@ -95,8 +95,8 @@ nats:
     note: "both halves now demonstrated end-to-end in tests/acceptance/test_m1_acceptance.py: ungranted capability -> ValidationFailure, no Manifest; effect outside manifest -> EffectFailure(refused) with adapter.calls == 0"
   nat_02:
     bind: "creator identity + capability registry authority (constitution 5)"
-    status: "partial"
-    note: "deterministic half implemented (test_nat_02_non_creator_registration_is_rejected: non-creator principal_id -> AuthorityUnavailable, registry unchanged); signature-verification half of authority deferred until a key-based authority module lands (documented M1 trust model: principal_id equality)"
+    status: "implemented"
+    note: "both halves implemented: deterministic half (principal_id equality) + cryptographic signature-verification half in kernel/crypto_authority.py (M2.8); Ed25519 signature verification on AuthorityGrant for provider registration/revocation and creator-gated actions (reopen, merge proposal, policy override); tested in tests/kernel/test_crypto_authority.py (23 passed)"
   nat_03:
     bind: "event log -> minimal memory projection (constitution 20)"
     status: "implemented"

@@ -1,9 +1,9 @@
 # JARVIS 2.0 — COMPREHENSIVE ROADMAP & REMAINING WORK
 
 > **Repository Root:** `F:\JARVIS2.0`  
-> **Active Branch:** `task/supervisor` @ `31d7a55`  
+> **Active Branch:** `task/supervisor` @ `8a481c2`  
 > **Last Verified:** September 21, 2026  
-> **Test Suite Status:** **721 passed in 39.51s**, 0 failed (100% GREEN)  
+> **Test Suite Status:** **744 passed in 41.83s**, 0 failed (100% GREEN)  
 > **Orchestrator State:** `F:\JARVIS_ORCHESTRATOR_STATE\`
 
 ---
@@ -36,7 +36,8 @@ The core architecture follows the foundational principle: **"The model proposes;
 | **M2.4: Hermetic Verification Ladder** | `afa6beb` (on `main`) | VERIFIED & MERGED | 420 passed |
 | **M2.5: PII Seam & Data Privacy Policy** | `07a30a1` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 682 passed |
 | **M2.6: Hermetic Filesystem Effect & Sandbox** | `c908ea4` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 692 passed |
-| **M2.7: Manifest Compilation & DAG Validation** | `31d7a55` (on `task/supervisor`) | **VERIFIED & RECONCILED** | **721 passed** |
+| **M2.7: Manifest Compilation & DAG Validation** | `31d7a55` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 721 passed |
+| **M2.8: Key-Based Creator Authority** | `8a481c2` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **744 passed** |
 | **M3.1: Autonomous Engineering Supervisor** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 548 passed |
 | **M3.2: Multi-Step Mission Execution Loop** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 564 passed |
 | **M3.3: Dynamic Worker Orchestration & L7 Bridges** | `ce605bc` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 629 passed |
@@ -114,10 +115,10 @@ The core architecture follows the foundational principle: **"The model proposes;
 - [x] Manifest adapter and deterministic work order digest (`compile_manifest_dag`, `compile_from_manifest`).
 - [x] Unit tests: Cycle detection in effect graphs, deterministic topological sort, lock conflict scheduling (19 tests).
 
-#### 4. M2.8 — Key-Based Creator Authority (`src/jarvis/kernel/crypto_authority.py`)
-- [ ] Ed25519 signature verification for creator-gated actions (reopen, merge proposal, policy override).
-- [ ] Replace simple `principal_id == "creator"` string equality with cryptographic signature verification (`NAT-02` complete).
-- [ ] Unit tests: Prove that tampered signatures or forged keys are rejected with `AuthorityUnavailable`.
+#### 4. M2.8 — Key-Based Creator Authority (`src/jarvis/kernel/crypto_authority.py`) [COMPLETED & FROZEN]
+- [x] Ed25519 signature verification for creator-gated actions (reopen, merge proposal, policy override).
+- [x] Replace simple `principal_id == "creator"` string equality with cryptographic signature verification (`NAT-02` complete).
+- [x] Unit tests: Prove that tampered signatures or forged keys are rejected with `AuthorityUnavailable` (23 tests).
 
 #### 5. M2.9 — Dynamic Budgets & Circuit Breakers (`src/jarvis/kernel/circuit_breaker.py`)
 - [ ] Sliding-window rate limiters for external model and API providers.
