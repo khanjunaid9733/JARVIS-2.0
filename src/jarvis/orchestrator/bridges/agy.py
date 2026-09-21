@@ -1,68 +1,32 @@
 from __future__ import annotations
 
-"""Antigravity (AGY) L7 Bridge (ORCHESTRATOR_ARCHITECTURE.md §12).
+"""Antigravity (AGY) L7 Bridge (ORCHESTRATOR_ARCHITECTURE.md section 12).
 
-Executes tasks using the Antigravity headless CLI (`agy.exe`):
-    `agy -p "<prompt>" --dangerously-skip-permissions --add-dir "<workdir>"`
+Runs tasks through the Antigravity headless CLI:
 
-Provides hermetic command execution via an injectable CommandRunner.
+    agy -p "<prompt>" --dangerously-skip-permissions --add-dir "<workdir>"
+
+All validation, spawning, containment and lifecycle handling live in the shared
+``dispatch`` module - this file is only the provider's argument vector.
+
+Known open item, unchanged by this pass: ``ORCHESTRATOR_ARCHITECTURE.md:257``
+states the Sandbox "replaces ``--dangerously-skip-permissions`` entirely", and
+that flag is still passed here. Removing it changes how the real CLI behaves,
+so it is a creator decision rather than a silent edit.
 """
 
-import subprocess
-import time
-import uuid
-from dataclasses import dataclass
 from pathlib import Path
 
-from .protocol import Artifacts, Bridge, CommandRunner, Handle, Sandbox, WorkerStatus
+from .dispatch import WorkerDispatch
 
 
-@dataclass
-class _JobState:
-    status: WorkerStatus
-    exit_code: int = -1
-    stdout: str = ""
-    stderr: str = ""
-    cancelled: bool = False
-
-
-class _DefaultSubprocessRunner:
-    def run(
-        self, cmd: list[str], cwd: Path, timeout: float | None = None
-    ) -> tuple[int, str, str]:
-        try:
-            proc = subprocess.run(
-                cmd,
-                cwd=str(cwd),
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout,
-                shell=False,
-            )
-            return proc.returncode, proc.stdout, proc.stderr
-        except subprocess.TimeoutExpired as e:
-            stdout = e.stdout or ""
-            stderr = (e.stderr or "") + "\nTimeoutExpired"
-            return 124, stdout, stderr
-        except Exception as e:
-            return 1, "", str(e)
-
-
-class AgyBridge(Bridge):
+class AgyBridge(WorkerDispatch):
     """Bridge adapter for Antigravity (AGY) workers."""
 
-    def __init__(self, runner: CommandRunner | None = None) -> None:
-        self._runner = runner or _DefaultSubprocessRunner()
-        self._jobs: dict[str, _JobState] = {}
+    handle_prefix = "agy"
 
-    def submit(self, prompt: str, workdir: Path, sandbox: Sandbox) -> Handle:
-        handle_id = f"agy-{uuid.uuid4().hex[:12]}"
-        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        handle = Handle(handle_id=handle_id, workdir=workdir, started_at=now)
-
-        cmd = [
+    def _argv(self, prompt: str, workdir: Path) -> list[str]:
+        return [
             "agy",
             "-p",
             prompt,
@@ -70,43 +34,6 @@ class AgyBridge(Bridge):
             "--add-dir",
             str(workdir),
         ]
-        self._jobs[handle_id] = _JobState(status=WorkerStatus.RUNNING)
 
-        rc, out, err = self._runner.run(
-            cmd, cwd=workdir, timeout=sandbox.timeout_seconds
-        )
 
-        job = self._jobs[handle_id]
-        job.exit_code = rc
-        job.stdout = out
-        job.stderr = err
-        if job.cancelled:
-            job.status = WorkerStatus.CANCELLED
-        elif rc == 0:
-            job.status = WorkerStatus.COMPLETED
-        else:
-            job.status = WorkerStatus.FAILED
-
-        return handle
-
-    def status(self, handle: Handle) -> WorkerStatus:
-        job = self._jobs.get(handle.handle_id)
-        if not job:
-            return WorkerStatus.FAILED
-        return job.status
-
-    def cancel(self, handle: Handle) -> None:
-        job = self._jobs.get(handle.handle_id)
-        if job and job.status in (WorkerStatus.PENDING, WorkerStatus.RUNNING):
-            job.cancelled = True
-            job.status = WorkerStatus.CANCELLED
-
-    def collect(self, handle: Handle) -> Artifacts:
-        job = self._jobs.get(handle.handle_id)
-        if not job:
-            return Artifacts(exit_code=1, stdout="", stderr="Unknown handle")
-        return Artifacts(
-            exit_code=job.exit_code,
-            stdout=job.stdout,
-            stderr=job.stderr,
-        )
+__all__ = ["AgyBridge"]

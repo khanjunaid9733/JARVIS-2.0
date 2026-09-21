@@ -13,10 +13,10 @@
 | **Main Baseline** | `main` @ `afa6beb` (M2.4 merged) | FROZEN |
 | **Baseline Commit** | `7607a6f1f226824b5a7038e15efd66932529da7c` | IMMUTABLE |
 | **Core Kernel** | `src/jarvis/kernel/**` byte-identical to `main` | UNTOUCHED (0 diffs) |
-| **Test Suite** | **578 passed in 23.25s**, 0 failed | 100% GREEN |
+| **Test Suite** | **629 passed in 37.45s**, 0 failed | 100% GREEN |
 | **Active Plan** | M3 Orchestrator / Autonomous Engineering Supervisor | IN PROGRESS |
 | **State Directory** | `F:\JARVIS_ORCHESTRATOR_STATE\` | INITIALIZED & ACTIVE |
-| **Frozen Packages** | `["M3.1", "M3.2", "M3.3"]` (signed in `evidence/`) | ACCEPTED |
+| **Frozen Packages** | `["M3.1", "M3.2", "M3.3", "M3.4"]` (signed in `evidence/`) | ACCEPTED |
 
 ---
 
@@ -31,22 +31,24 @@ All 6 contract modules + `__init__.py` exist and export 26 symbols:
 5. **`recovery.py`**: `RecoveryAction` (`NONE`, `RETRY`, `RESTART`, `ROLLBACK`, `ESCALATE`, `HOLD`), `RecoveryPolicy`, `RecoveryPlan`, `decide_recovery(...)`. Pure data ladder fold.
 6. **`supervisor.py`**: `Verifier`, `Observer`, `Acceptor` protocols; `SupervisorDecision`; `Supervisor` (`decide`, `verify`, `freeze`).
 
-### B. Unit & Integration Tests (`tests/supervisor/` & `tests/orchestrator/`)
-All 12 suites passing (151 tests):
+### B. Unit & Integration Tests (`tests/supervisor/`, `tests/orchestrator/`, `tests/review/`)
+All suites passing (629 tests total):
 * `tests/supervisor/`: 9 test files (121 tests)
-* `tests/orchestrator/`: 3 test files (30 tests: `test_mission_runner.py`, `test_bridges.py`, `test_router.py`)
+* `tests/orchestrator/`: 4 test files (42 tests: `mission_runner`, `bridges`, `router`, `recovery_engine`)
+* `tests/review/`: 4 review probe files (including Freebuff's 18 M3.3 probes)
 
 ### C. Verification & Orchestration Scripts (`scripts/`)
 * **`scripts/verify.py`**: Phase 1 L0 Verification Authority. Enforces pytest suite, compares frozen baseline against commit `7607a6f`, executes review probes, collects authority fingerprint, and emits canonical SHA-256 digested JSON evidence.
 * **`scripts/journal.py`**: Append-only, hash-chained, fsync-durable JSONL journal (`journal.jsonl`).
 * **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`). Enforces single-writer lock (`supervisor.lock`), durable ledger (`ledger.json`), and coordinates verify + journal emission.
 
-### D. Milestones M3.1, M3.2 & M3.3 Verified & Frozen
+### D. Milestones M3.1, M3.2, M3.3 & M3.4 Verified & Frozen
 * Evidence bundles:
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json` (`sha256:82234d7554342760aaaea6d496e911de7980550bfc9e719f0b051316a4c0d057`)
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.2.json` (`sha256:c7a757db846c04815c73071513e83217a58b7a0450a0760d3e0578821b05777a`)
-  - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.3.json` (`sha256:d1e72c8432546b5bf27bdd25f8e77d115df10bda7d5e538ddf7922071ede552d`)
-* Ledger updated: `frozen_packages: ["M3.1", "M3.2", "M3.3"]`, `last_known_good: "98a82bdd7d4d6c68ccdb60029f80d94e735129ca"`, `last_verify_exit: 0`.
+  - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.3.json` (`sha256:51634863eeeb4c82ce94c5892e72f51ca0a1ae303b58635015def77ede55c603`)
+  - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.4.json` (`sha256:bdf8ec16a4c1ee78ed55bc391d6ec9eaf062ae3a53be14e5375b3b04ed3a22a5`)
+* Ledger updated: `frozen_packages: ["M3.1", "M3.2", "M3.3", "M3.4"]`, `last_known_good: "0f43bcfa9c9e257a4b4e6adc710a456d223a038d"`, `last_verify_exit: 0`.
 
 ---
 

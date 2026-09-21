@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""L5 Router and Role Contracts (ORCHESTRATOR_ARCHITECTURE.md §10).
+"""L5 Router and Role Contracts (ORCHESTRATOR_ARCHITECTURE.md section 10).
 
 Roles are capability contracts, not provider names:
     IMPLEMENTER          -> implementation.v1
@@ -12,12 +12,18 @@ Enforces Invariant I5 (Exclusion Constraint):
     For any package P:
         provider_filling(redteam.v1, P) != provider_filling(verification.v1, P)
 
+I5 is enforced on CANONICAL identities, never on raw strings. Comparing raw
+strings let three spellings defeat the constraint outright (F-M3.3-FB-4): a case
+variant ("Antigravity" vs "antigravity"), an alias for the same logical worker
+("agy"), and a differently-spelled package id. Casing, whitespace and known
+aliases are therefore folded before any comparison.
+
 When every provider for a required role is unavailable or excluded, the router
 returns a DEGRADED result and the package HOLDS.
 """
 
 import enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Mapping, Sequence
 
 
@@ -45,6 +51,33 @@ ROLE_CAPABILITIES: Mapping[Role, Capability] = {
     Role.INDEPENDENT_VERIFIER: Capability.VERIFICATION_V1,
     Role.RECONCILER: Capability.RECONCILIATION_V1,
 }
+
+#: Aliases that name the SAME logical worker. Excluding one must exclude all of
+#: them, or I5 is enforceable only against the spelling a caller happened to use.
+PROVIDER_ALIASES: Mapping[str, str] = {
+    "antigravity": "antigravity",
+    "antigravity-ide": "antigravity",
+    "agy": "antigravity",
+    "gemini": "antigravity",
+    "bigpickle": "bigpickle",
+    "big-pickle": "bigpickle",
+    "opencode": "bigpickle",
+    "opencode-cli": "bigpickle",
+    "deepseek": "freebuff",
+    "deepseek-reasoner": "freebuff",
+    "freebuff": "freebuff",
+}
+
+
+def canonical_provider(name: str) -> str:
+    """Fold a provider identifier to the identity I5 reasons about."""
+    key = (name or "").strip().casefold()
+    return PROVIDER_ALIASES.get(key, key)
+
+
+def canonical_package(package: str) -> str:
+    """Fold a package identifier to the identity I5 reasons about."""
+    return (package or "").strip().casefold()
 
 
 @dataclass(frozen=True)
@@ -80,7 +113,7 @@ class RouterResult:
 
 
 def default_provider_registry() -> dict[str, ProviderProfile]:
-    """Default baseline provider capabilities per spec §10."""
+    """Default baseline provider capabilities per spec section 10."""
     return {
         "bigpickle": ProviderProfile(
             name="bigpickle",
@@ -128,31 +161,36 @@ class Router:
         1. Required capability match
         2. Provider health
         3. Invariant I5 (no provider fills both RED_TEAM_REVIEWER and
-           INDEPENDENT_VERIFIER on the same package)
+           INDEPENDENT_VERIFIER on the same package), on canonical identities
         """
         required_cap = ROLE_CAPABILITIES[role]
+        pkg = canonical_package(package)
 
-        # Determine excluded providers per Invariant I5
+        # Determine excluded providers per Invariant I5, canonically.
         excluded: set[str] = set()
         if role is Role.RED_TEAM_REVIEWER:
-            for a in assignments:
-                if a.package == package and a.role is Role.INDEPENDENT_VERIFIER:
-                    excluded.add(a.provider)
+            counterpart = Role.INDEPENDENT_VERIFIER
         elif role is Role.INDEPENDENT_VERIFIER:
-            for a in assignments:
-                if a.package == package and a.role is Role.RED_TEAM_REVIEWER:
-                    excluded.add(a.provider)
+            counterpart = Role.RED_TEAM_REVIEWER
+        else:
+            counterpart = None
+        if counterpart is not None:
+            for assignment in assignments:
+                if assignment.role is counterpart and canonical_package(
+                    assignment.package
+                ) == pkg:
+                    excluded.add(canonical_provider(assignment.provider))
 
         # Filter candidates
         candidates: list[ProviderProfile] = []
-        for p in self._registry.values():
-            if not p.healthy:
+        for profile in self._registry.values():
+            if not profile.healthy:
                 continue
-            if required_cap not in p.capabilities:
+            if required_cap not in profile.capabilities:
                 continue
-            if p.name in excluded:
+            if canonical_provider(profile.name) in excluded:
                 continue
-            candidates.append(p)
+            candidates.append(profile)
 
         if not candidates:
             exclusion_note = f" (excluded: {sorted(excluded)})" if excluded else ""
@@ -169,3 +207,18 @@ class Router:
         candidates.sort(key=lambda p: p.priority)
         chosen = candidates[0]
         return RouterResult(provider=chosen.name)
+
+
+__all__ = [
+    "PROVIDER_ALIASES",
+    "Capability",
+    "ProviderProfile",
+    "ROLE_CAPABILITIES",
+    "Role",
+    "RoleAssignment",
+    "Router",
+    "RouterResult",
+    "canonical_package",
+    "canonical_provider",
+    "default_provider_registry",
+]

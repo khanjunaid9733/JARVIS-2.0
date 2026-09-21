@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-"""Unit tests for L5 Router & Invariant I5 (tests/orchestrator/test_router.py)."""
+"""Unit tests for L5 Router & Invariant I5 (tests/orchestrator/test_router.py).
 
-import pytest
+I5 is enforced on CANONICAL identities. Comparing raw strings let a case
+variant, an alias for the same logical worker, or a differently-spelled package
+id defeat the constraint entirely (F-M3.3-FB-4), so every comparison folds
+casing, whitespace and known aliases first.
+"""
 
 from jarvis.orchestrator.router import (
     Capability,
@@ -10,7 +14,8 @@ from jarvis.orchestrator.router import (
     Role,
     RoleAssignment,
     Router,
-    RouterResult,
+    canonical_package,
+    canonical_provider,
     default_provider_registry,
 )
 
@@ -58,7 +63,6 @@ def test_resolve_verifier_selects_antigravity() -> None:
 
 def test_invariant_i5_verifier_cannot_redteam_same_package() -> None:
     """If Antigravity verified package P, it cannot red-team package P."""
-    router = Router()
     # Freebuff is unhealthy, leaving only antigravity as a redteam candidate
     registry = default_provider_registry()
     registry["freebuff"] = ProviderProfile(
@@ -120,3 +124,64 @@ def test_degraded_when_no_healthy_provider() -> None:
     assert not result.ok
     assert result.degraded
     assert "No healthy provider available" in result.reason
+
+
+# ---------------------------------------------------------------------------
+# Canonical identity (F-M3.3-FB-4)
+# ---------------------------------------------------------------------------
+
+
+def test_canonical_provider_folds_case_whitespace_and_aliases() -> None:
+    assert canonical_provider("Antigravity") == "antigravity"
+    assert canonical_provider("  AGY ") == "antigravity"
+    assert canonical_provider("gemini") == "antigravity"
+    assert canonical_provider("DeepSeek") == "freebuff"
+    assert canonical_provider("opencode") == "bigpickle"
+    # An unknown provider still folds case/whitespace, and stays distinct.
+    assert canonical_provider(" Someone New ") == "someone new"
+
+
+def test_canonical_package_folds_case_and_whitespace() -> None:
+    assert canonical_package(" M3.3 ") == "m3.3"
+    assert canonical_package("M3.3") == canonical_package("m3.3")
+
+
+def test_i5_excludes_a_case_variant_of_the_verifying_provider() -> None:
+    prior = [
+        RoleAssignment(package="M3.3", role=Role.RED_TEAM_REVIEWER, provider="Antigravity")
+    ]
+    result = Router().resolve(Role.INDEPENDENT_VERIFIER, package="M3.3", assignments=prior)
+    assert not result.ok and result.degraded
+
+
+def test_i5_excludes_an_alias_of_the_red_teaming_provider() -> None:
+    registry = {
+        "agy": ProviderProfile(
+            name="agy",
+            capabilities=frozenset({Capability.VERIFICATION_V1}),
+            priority=10,
+        )
+    }
+    prior = [
+        RoleAssignment(package="M3.3", role=Role.RED_TEAM_REVIEWER, provider="antigravity")
+    ]
+    result = Router(registry=registry).resolve(
+        Role.INDEPENDENT_VERIFIER, package="M3.3", assignments=prior
+    )
+    assert not result.ok and result.degraded
+
+
+def test_i5_excludes_across_a_package_case_variant() -> None:
+    prior = [
+        RoleAssignment(package="m3.3", role=Role.RED_TEAM_REVIEWER, provider="antigravity")
+    ]
+    result = Router().resolve(Role.INDEPENDENT_VERIFIER, package="M3.3", assignments=prior)
+    assert not result.ok and result.degraded
+
+
+def test_i5_does_not_over_exclude_a_different_provider() -> None:
+    prior = [
+        RoleAssignment(package="M3.3", role=Role.RED_TEAM_REVIEWER, provider="freebuff")
+    ]
+    result = Router().resolve(Role.INDEPENDENT_VERIFIER, package="M3.3", assignments=prior)
+    assert result.ok and result.provider == "antigravity"

@@ -3,7 +3,7 @@
 > **Repository Root:** `F:\JARVIS2.0`  
 > **Active Branch:** `task/supervisor` @ `98a82bd`  
 > **Last Verified:** September 21, 2026  
-> **Test Suite Status:** **578 passed in 23.25s**, 0 failed (100% GREEN)  
+> **Test Suite Status:** **629 passed in 37.45s**, 0 failed (100% GREEN)  
 > **Orchestrator State:** `F:\JARVIS_ORCHESTRATOR_STATE\`
 
 ---
@@ -36,7 +36,8 @@ The core architecture follows the foundational principle: **"The model proposes;
 | **M2.4: Hermetic Verification Ladder** | `afa6beb` (on `main`) | VERIFIED & MERGED | 420 passed |
 | **M2.5 / M3.1: Autonomous Engineering Supervisor** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 548 passed |
 | **M3.2: Multi-Step Mission Execution Loop** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 564 passed |
-| **M3.3: Dynamic Worker Orchestration & L7 Bridges** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **578 passed** |
+| **M3.3: Dynamic Worker Orchestration & L7 Bridges** | `0f43bcf` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 578 passed |
+| **M3.4: Automated Failure Recovery & Rollback Engine** | `0f43bcf` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **629 passed** |
 
 ---
 
@@ -67,7 +68,7 @@ The core architecture follows the foundational principle: **"The model proposes;
 - **`scripts/verify.py`**: Independent L0 Verification Authority. Enforces pytest run, compares frozen baseline against commit `7607a6f`, runs review probes, captures authority fingerprint, and emits canonical JSON evidence.
 - **`scripts/journal.py`**: Append-only hash-chained fsync-durable JSONL journal.
 - **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`) enforcing single-writer locks (`supervisor.lock`) and durable ledger updates (`ledger.json`).
-- **Milestones M3.1, M3.2 & M3.3 Accepted**: Recorded in `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json`, `M3.2.json`, and `M3.3.json`.
+- **Milestones M3.1, M3.2, M3.3 & M3.4 Accepted**: Recorded in `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json`, `M3.2.json`, `M3.3.json`, and `M3.4.json`.
 
 ---
 
@@ -80,7 +81,7 @@ The core architecture follows the foundational principle: **"The model proposes;
 │    MILESTONE      │       SCOPE       │           STATUS               │
 ├───────────────────┼───────────────────┼────────────────────────────────┤
 │ M2 Residuals      │ M2.5 – M2.10      │ Ready for incremental build    │
-│ M3 Orchestrator   │ M3.4 – M3.5       │ Current active focus (M3.2/3.3)│
+│ M3 Orchestrator   │ M3.5              │ Current active focus (M3.2-3.4)│
 │ M4 Multimodal     │ Vision / Voice    │ Planned after M3               │
 │ M5 Robotics       │ Physical Nodes    │ Long-term directional          │
 └───────────────────┴───────────────────┴────────────────────────────────┘
@@ -133,19 +134,21 @@ The core architecture follows the foundational principle: **"The model proposes;
 - [x] Deterministic recovery fold (`RETRY` / `RESTART` / `ROLLBACK` / `ESCALATE` / `HOLD`) bounded by `RecoveryPolicy`.
 - [x] 16 unit tests passing in `tests/orchestrator/test_mission_runner.py`.
 
-#### 2. M3.3 — Dynamic Worker Orchestration & L7 Bridges (`src/jarvis/orchestrator/bridges/` & `router.py`) [COMPLETED & FROZEN]
+#### 2. M3.3 — Dynamic Worker Orchestration & L7 Bridges (`src/jarvis/orchestrator/bridges/` & `router.py`) [COMPLETED, RECONCILED & FROZEN]
 - [x] **OpenCode Bridge (`opencode.py`)**: Automated task dispatch via OpenCode CLI.
 - [x] **Freebuff Bridge (`deepseek.py`)**: Adversarial red-team dispatch for automated vulnerability reviews.
 - [x] **Antigravity Bridge (`agy.py`)**: Independent audit and test suite execution via `agy.exe`.
 - [x] **Router & Role Contracts (`router.py`)**: Capability contracts (`implementation.v1`, `redteam.v1`, `verification.v1`, `reconciliation.v1`).
-- [x] **Invariant I5 Enforcement**: Strict exclusion preventing a provider from both red-teaming and verifying the same package (`tests/orchestrator/test_router.py`).
-- [x] 14 unit tests passing across `tests/orchestrator/test_bridges.py` and `tests/orchestrator/test_router.py`.
+- [x] **Invariant I5 Enforcement**: Strict exclusion preventing a provider from both red-teaming and verifying the same package.
+- [x] **Freebuff Red-Team Reconciled**: Closed FB-1 (sandbox validation), FB-2 (process containment & kill-on-close Job Object on Windows), FB-3 (async lifecycle & real cancel), FB-4 (canonical provider/package identity + alias table), FB-6 (prompt length ceiling), FB-7 (thread-safe atomic job transitions).
+- [x] 18 review probes passing in `tests/review/test_freebuff_redteam_m3_3.py`.
 
-#### 3. M3.4 — Automated Failure Recovery & Rollback Engine (`src/jarvis/orchestrator/recovery_engine.py`)
-- [ ] Hook `decide_recovery()` ladder directly into git worktree operations.
-- [ ] Automated `RETRY` with failure context injection into worker prompt.
-- [ ] Automated `ROLLBACK` to `last_known_good` commit upon repeated verification failure.
-- [ ] Automated `ESCALATE` generating human-actionable escalation bundles.
+#### 3. M3.4 — Automated Failure Recovery & Rollback Engine (`src/jarvis/orchestrator/recovery_engine.py`) [COMPLETED & FROZEN]
+- [x] Hook `decide_recovery()` ladder directly into git worktree operations.
+- [x] Automated `RETRY` with failure context injection into worker prompt.
+- [x] Automated `ROLLBACK` to `last_known_good` commit upon repeated verification failure.
+- [x] Automated `ESCALATE` generating human-actionable escalation bundles.
+- [x] 12 unit tests passing in `tests/orchestrator/test_recovery_engine.py`.
 
 #### 4. M3.5 — Standalone Supervisor Daemon (`src/jarvis/orchestrator/daemon.py`)
 - [ ] Background daemon process watching `F:\JARVIS_ORCHESTRATOR_STATE\leases\`.
