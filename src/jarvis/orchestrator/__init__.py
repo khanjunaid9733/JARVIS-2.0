@@ -38,6 +38,13 @@ from .mission_runner import (
     MissionStepResult,
     StepVerifier,
 )
+from .recovery_engine import (
+    EscalationBundle,
+    GitSeam,
+    RecoveryEngine,
+    RecoveryOutcome,
+    RetryContext,
+)
 from .router import (
     Capability,
     ProviderProfile,
@@ -56,6 +63,8 @@ __all__ = [
     "CommandRunner",
     "Decomposer",
     "DeepSeekBridge",
+    "EscalationBundle",
+    "GitSeam",
     "Handle",
     "MissionPlan",
     "MissionRun",
@@ -64,6 +73,9 @@ __all__ = [
     "MissionStepResult",
     "OpenCodeBridge",
     "ProviderProfile",
+    "RecoveryEngine",
+    "RecoveryOutcome",
+    "RetryContext",
     "Role",
     "RoleAssignment",
     "Router",
