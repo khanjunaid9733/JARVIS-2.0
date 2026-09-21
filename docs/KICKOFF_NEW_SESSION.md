@@ -9,14 +9,14 @@
 | Datum | Verified Reality | Status |
 |---|---|---|
 | **Directory** | `F:\JARVIS2.0` (NEVER use `C:\Users\khanj\jarvis_home`) | ACTIVE WORKSPACE |
-| **Branch** | `task/supervisor` @ `5b0a792` | ACTIVE |
+| **Branch** | `task/supervisor` @ `70d535f` | ACTIVE |
 | **Main Baseline** | `main` @ `afa6beb` (M2.4 merged) | FROZEN |
 | **Baseline Commit** | `7607a6f1f226824b5a7038e15efd66932529da7c` | IMMUTABLE |
 | **Core Kernel** | `src/jarvis/kernel/**` byte-identical to `main` | UNTOUCHED (0 diffs) |
-| **Test Suite** | **766 passed in 40.92s**, 0 failed | 100% GREEN |
-| **Active Plan** | M2 Residuals / Memory & Capability Hardening | IN PROGRESS |
+| **Test Suite** | **785 passed in 42.31s**, 0 failed | 100% GREEN |
+| **Active Plan** | Phase 4: M5 Embodiment / Physical Nodes | UPCOMING |
 | **State Directory** | `F:\JARVIS_ORCHESTRATOR_STATE\` | INITIALIZED & ACTIVE |
-| **Frozen Packages** | `["M3.1", "M3.2", "M3.3", "M3.4", "M3.5", "M2.5", "M2.6", "M2.7", "M2.8", "M2.9", "M2.10"]` (signed in `evidence/`) | ACCEPTED |
+| **Frozen Packages** | `["M3.1", "M3.2", "M3.3", "M3.4", "M3.5", "M2.5", "M2.6", "M2.7", "M2.8", "M2.9", "M2.10", "M4"]` (signed in `evidence/`) | ACCEPTED |
 
 ---
 
@@ -31,13 +31,14 @@ All 6 contract modules + `__init__.py` exist and export 30 symbols (pinned by `t
 5. **`recovery.py`**: `RecoveryAction` (`NONE`, `RETRY`, `RESTART`, `ROLLBACK`, `ESCALATE`, `HOLD`), `RecoveryPolicy`, `RecoveryPlan`, `decide_recovery(...)`. Pure data ladder fold.
 6. **`supervisor.py`**: `Verifier`, `Observer`, `Acceptor` protocols; `SupervisorDecision`; `Supervisor` (`decide`, `verify`, `freeze`).
 
-### B. Unit & Integration Tests (`tests/supervisor/`, `tests/orchestrator/`, `tests/review/`, `tests/kernel/`, `tests/effects/`)
-All suites passing (766 tests total):
+### B. Unit & Integration Tests (`tests/supervisor/`, `tests/orchestrator/`, `tests/review/`, `tests/kernel/`, `tests/effects/`, `tests/multimodal/`)
+All suites passing (785 tests total):
 * `tests/supervisor/`: 9 test files (121 tests)
 * `tests/orchestrator/`: 5 test files (98 tests: `mission_runner` 16, `bridges` 20, `router` 15, `recovery_engine` 12, `daemon` 35)
 * `tests/review/`: 5 review probe files (94 probes, including Freebuff's M3.3 and M2.7 probes)
 * `tests/kernel/`: 22 test files (392 tests, including M2.5 `test_privacy.py` 18 tests, M2.7 `test_manifest_dag.py` 19 tests, M2.8 `test_crypto_authority.py` 23 tests, M2.9 `test_circuit_breaker.py` 14 tests, M2.10 `test_checkpoint.py` 8 tests)
 * `tests/effects/`: 1 test file (10 tests: `test_filesystem.py`)
+* `tests/multimodal/`: 3 test files (19 tests: `test_voice.py` 10, `test_vision.py` 6, `test_streaming.py` 3)
 * Plus: `tests/` root (21), `tests/acceptance/` (15), `tests/providers/` (15)
 
 ### C. Verification & Orchestration Scripts (`scripts/`)
@@ -45,7 +46,7 @@ All suites passing (766 tests total):
 * **`scripts/journal.py`**: Append-only, hash-chained, fsync-durable JSONL journal (`journal.jsonl`).
 * **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`) enforcing single-writer lock (`supervisor.lock`), durable ledger (`ledger.json`), and coordinates verify + journal emission.
 
-### D. Milestones M3.1–M3.5, M2.5–M2.10 Verified & Frozen
+### D. Milestones M3.1–M3.5, M2.5–M2.10, M4 Verified & Frozen
 * Evidence bundles:
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json` (`sha256:82234d7554342760aaaea6d496e911de7980550bfc9e719f0b051316a4c0d057`)
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.2.json` (`sha256:c2349f8f3acaca67965a4943d35157f15faaec5c2dfa88d0fd033c537446fe63`)
@@ -58,7 +59,8 @@ All suites passing (766 tests total):
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M2.8.json` (`sha256:ff222a73c5046a1a7b7555dca4f4c36116aa26c23aa303944135980b7ac945aa`)
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M2.9.json` (`sha256:b2d97b01a7e329ee54ff4574bbad1427da37ade7193ae297256e137ae6b21037`)
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M2.10.json` (`sha256:77ba34e16fd1610f410d93cf77c3f3ff3b1de1eec3acfef465d15677aab3bb2c`)
-* Ledger updated: `frozen_packages: ["M3.1", "M3.2", "M3.3", "M3.4", "M3.5", "M2.5", "M2.6", "M2.7", "M2.8", "M2.9", "M2.10"]`, `current_milestone: "M2.10"`, `last_known_good: "5b0a792d1bfb337d5b94e73476f20cf5593d3c04"`, `last_verify_exit: 0`.
+  - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M4.json` (`sha256:473201dd3bdeff961c88aa69c8adf18c6e01241c8f7d59e26d7e6d04b2139aa5`)
+* Ledger updated: `frozen_packages: ["M3.1", "M3.2", "M3.3", "M3.4", "M3.5", "M2.5", "M2.6", "M2.7", "M2.8", "M2.9", "M2.10", "M4"]`, `current_milestone: "M4"`, `last_known_good: "70d535f04cd0a95043783a993d91e7f07508b9f8"`, `last_verify_exit: 0`.
 
 ---
 

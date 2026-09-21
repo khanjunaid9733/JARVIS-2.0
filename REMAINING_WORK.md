@@ -1,9 +1,9 @@
 # JARVIS 2.0 — COMPREHENSIVE ROADMAP & REMAINING WORK
 
 > **Repository Root:** `F:\JARVIS2.0`  
-> **Active Branch:** `task/supervisor` @ `5b0a792`  
+> **Active Branch:** `task/supervisor` @ `70d535f`  
 > **Last Verified:** September 21, 2026  
-> **Test Suite Status:** **766 passed in 40.92s**, 0 failed (100% GREEN)  
+> **Test Suite Status:** **785 passed in 42.31s**, 0 failed (100% GREEN)  
 > **Orchestrator State:** `F:\JARVIS_ORCHESTRATOR_STATE\`
 
 ---
@@ -39,12 +39,13 @@ The core architecture follows the foundational principle: **"The model proposes;
 | **M2.7: Manifest Compilation & DAG Validation** | `31d7a55` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 721 passed |
 | **M2.8: Key-Based Creator Authority** | `8a481c2` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 744 passed |
 | **M2.9: Dynamic Budgets & Circuit Breakers** | `9c2b265` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 758 passed |
-| **M2.10: Unified Memory Checkpoint & Single State Digest** | `5b0a792` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **766 passed** |
+| **M2.10: Unified Memory Checkpoint & Single State Digest** | `5b0a792` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 766 passed |
 | **M3.1: Autonomous Engineering Supervisor** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 548 passed |
 | **M3.2: Multi-Step Mission Execution Loop** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 564 passed |
 | **M3.3: Dynamic Worker Orchestration & L7 Bridges** | `ce605bc` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 629 passed |
 | **M3.4: Automated Failure Recovery & Rollback Engine** | `0f43bcf` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 590 passed → 629 (reconciled) |
 | **M3.5: Supervisor Daemon (Lease/Heartbeat + Orphan Recovery + Ledger Fold)** | `15c4fe9` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 664 passed |
+| **M4: Multimodal Cognition (Vision & Speech)** | `70d535f` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **785 passed** |
 
 ---
 
@@ -80,6 +81,11 @@ The core architecture follows the foundational principle: **"The model proposes;
 - **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`) enforcing single-writer locks (`supervisor.lock`) and durable ledger updates (`ledger.json`).
 - **Milestones M3.1–M3.5, M2.5, M2.6 & M2.7 Accepted**: Recorded in `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json`, `M3.2.json`, `M3.3.json`, `M3.4.json`, `M3.5.json`, `M2.5.json`, `M2.6.json`, and `M2.7.json`.
 
+### D. Multimodal Cognition (`src/jarvis/multimodal/`)
+- **Voice Interface (`voice.py`)**: `WhisperSTTAdapter` (`audio.transcribe` v1.0.0) + `PiperTTSAdapter` (`audio.synthesize` v1.0.0) implementing `ProviderAdapter` with pluggable runner seams.
+- **Vision Processing (`vision.py`)**: `VisionModelAdapter` (`vision.describe`, `vision.analyze` v1.0.0) implementing `ProviderAdapter`.
+- **Streaming Event Loop (`streaming.py`)**: `VoiceTurnState` 6-state machine (`IDLE`, `LISTENING`, `USER_SPEAKING`, `THINKING`, `ASSISTANT_SPEAKING`, `INTERRUPTED`) and `StreamingVoiceLoop` with real-time barge-in interruption handling and event log auditing.
+
 ---
 
 ## 3. Detailed Breakdown of Remaining Work
@@ -90,9 +96,9 @@ The core architecture follows the foundational principle: **"The model proposes;
 ├───────────────────┬───────────────────┬────────────────────────────────┤
 │    MILESTONE      │       SCOPE       │           STATUS               │
 ├───────────────────┼───────────────────┼────────────────────────────────┤
-│ M2 Residuals      │ M2.8 – M2.10      │ Active focus (M2.5-2.7 sealed) │
+│ M2 Residuals      │ M2.8 – M2.10      │ ✅ 100% COMPLETE & FROZEN      │
 │ M3 Orchestrator   │ M3.1 – M3.5       │ ✅ 100% COMPLETE & FROZEN      │
-│ M4 Multimodal     │ Vision / Voice    │ Planned after M2 residuals     │
+│ M4 Multimodal     │ Vision / Voice    │ ✅ 100% COMPLETE & FROZEN      │
 │ M5 Robotics       │ Physical Nodes    │ Long-term directional          │
 └───────────────────┴───────────────────┴────────────────────────────────┘
 ```
@@ -171,11 +177,12 @@ The core architecture follows the foundational principle: **"The model proposes;
 
 ---
 
-### Phase 3: Milestone M4 — Multimodal Cognition (Vision & Speech)
+### Phase 3: Milestone M4 — Multimodal Cognition (Vision & Speech) [COMPLETED & FROZEN]
 
-- [ ] **Voice Interface**: Local Whisper STT + Piper TTS behind versioned provider adapters.
-- [ ] **Vision Processing**: Local vision model adapter (e.g. CLIP / Moondream) for screenshot and diagram analysis.
-- [ ] **Streaming Event Loop**: Real-time event subscription for low-latency voice turn-taking.
+- [x] **Voice Interface**: Local Whisper STT (`audio.transcribe` v1.0.0) + Piper TTS (`audio.synthesize` v1.0.0) behind versioned `ProviderAdapter`s.
+- [x] **Vision Processing**: Local vision model adapter (CLIP / Moondream behind `vision.describe` and `vision.analyze` v1.0.0) implementing `ProviderAdapter`.
+- [x] **Streaming Event Loop**: Real-time event subscription for low-latency voice turn-taking with barge-in interruption handling (`StreamingVoiceLoop`).
+- [x] 19 unit tests passing across `tests/multimodal/test_voice.py`, `tests/multimodal/test_vision.py`, and `tests/multimodal/test_streaming.py`.
 
 ---
 

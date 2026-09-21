@@ -64,7 +64,7 @@ status:
       - "M2.3 amendments 1-9 -> RATIFIED (2026-09-19): one consolidation one principal; any_key_same_source gate; supersession bookkeeping from committed provenance (audit=False bounded); consolidation-products excluded from same-key supersession unless supersede_refine_gap declared; sticky memory.consolidate.rejected marker; fold-content E.4 wording; distinct exact/lower/fold normalize; provenance-shape-guarded refs; promote.order datum"
     packages: "M2.1 memory API + episodic trace (DONE) | M2.2 emb/retrieval seams (DONE) | M2.3 consolidation (DONE) | M2.4 verification (DONE) | M2.5 PII seam (DONE) | M2.6 FS effect + sandbox (DONE) | M2.7 manifest compilation + DAG (DONE) | M2.8 key authority (DONE) | M2.9 budgets/rate limits (DONE) | M2.10 checkpoints (single memory digest) (DONE)"  # full list in docs/M2_KICKOFF.md; M2 COMPLETE
   m3_missions: "m3_5_completed"  # 2026-09-21; M3 Orchestrator (M3.1-M3.5) complete, verified & frozen; 664 passed
-  m4_multimodal: "not_started"
+  m4_multimodal: "m4_completed"  # 2026-09-21; M4 multimodal cognition (Whisper STT, Piper TTS, vision adapters, streaming voice loop with barge-in) verified & accepted; 785 passed
   m5_robotics: "not_started"
 
 authority:
