@@ -55,14 +55,14 @@ status:
   m1_gate_review_predecessor: "superseded"  # earlier request docs/M1_REDTEAM_REQUEST.md targeted main @ 814d8bd in worktree F:\JARVIS-rt-m1 (branch review/m1-gate @ a6a16aa); superseded by the df72c4a freeze (M6 carry-over + s112 fix now in scope)
   m1_must_tier_verification: "antigravity_verified_cross_environment_confirmed_f8d8a77"  # 2026-09-18: independent read-only audit of all 12 s134.1 MUST items + NAT-01..05 + s112 subset on main @ f8d8a77; 231 passed; verdict CROSS_ENVIRONMENT_CONFIRMED: M1_MUST_TIER_COMPLETE. Gate remains open pending Freebuff red-team + creator sign-off
   m2_memory_os:
-    status: "m2_6_completed"  # 2026-09-21; M2.6 (hermetic filesystem effect & sandbox) verified & accepted; 692 passed
+    status: "m2_7_completed"  # 2026-09-21; M2.7 (manifest compilation & DAG validation) verified & accepted; 711 passed
     creator_rulings_accepted:  # 2026-09-19
       - "FB-1 recall tier distinction -> DEFERRED to M2.2 (RecalledMemory frozen; rerank seam carries tier/verification)"
       - "FB-2 dual NAT-03 digest -> MemoryIndex.digest() becomes the single memory-tract digest when M2.10 recovery folds providers; module-7 digest remains frozen M1 ledger digest"
       - "FB-6 refused-trace asymmetry -> ACCEPTED + documented (no memory.trace.rejected)"
       - "FB-M2.2-3 -> RULING (2026-09-19): contract D reworded to 'fold-content stability' (audit never enters folds); digest VALUE is append-position-sensitive for ANY appended event (same M2.1 semantics as traces)"
       - "M2.3 amendments 1-9 -> RATIFIED (2026-09-19): one consolidation one principal; any_key_same_source gate; supersession bookkeeping from committed provenance (audit=False bounded); consolidation-products excluded from same-key supersession unless supersede_refine_gap declared; sticky memory.consolidate.rejected marker; fold-content E.4 wording; distinct exact/lower/fold normalize; provenance-shape-guarded refs; promote.order datum"
-    packages: "M2.1 memory API + episodic trace (DONE) | M2.2 emb/retrieval seams (DONE) | M2.3 consolidation (DONE) | M2.4 verification (DONE) | M2.5 PII seam (DONE) | M2.6 FS effect + sandbox (DONE) | M2.7 manifest compilation + DAG (NEXT) | M2.8 key authority | M2.9 budgets/rate limits | M2.10 checkpoints (single memory digest)"  # full list in docs/M2_KICKOFF.md
+    packages: "M2.1 memory API + episodic trace (DONE) | M2.2 emb/retrieval seams (DONE) | M2.3 consolidation (DONE) | M2.4 verification (DONE) | M2.5 PII seam (DONE) | M2.6 FS effect + sandbox (DONE) | M2.7 manifest compilation + DAG (DONE) | M2.8 key authority (NEXT) | M2.9 budgets/rate limits | M2.10 checkpoints (single memory digest)"  # full list in docs/M2_KICKOFF.md
   m3_missions: "m3_5_completed"  # 2026-09-21; M3 Orchestrator (M3.1-M3.5) complete, verified & frozen; 664 passed
   m4_multimodal: "not_started"
   m5_robotics: "not_started"
@@ -120,10 +120,10 @@ m1_definition_of_done:
     - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)"
 
 current_task:
-  status: "m2_6_completed"
+  status: "m2_7_completed"
   phase: "m2_memory_os"
-  objective: "m2_7_manifest_dag"
-  next_step: "kickoff M2.7 (manifest compilation & DAG validation)"
+  objective: "m2_8_crypto_authority"
+  next_step: "kickoff M2.8 (key-based creator authority)"
 
 m1_1_stretch:
   status: "modules_15_17_reconciled"  # module 14 + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit (46e0d98) findings F-M15-1/F-M16-1/F-M17-1/F-M17-2 all fixed + regression tests

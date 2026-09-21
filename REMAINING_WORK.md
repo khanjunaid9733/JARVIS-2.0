@@ -1,9 +1,9 @@
 # JARVIS 2.0 — COMPREHENSIVE ROADMAP & REMAINING WORK
 
 > **Repository Root:** `F:\JARVIS2.0`  
-> **Active Branch:** `task/supervisor` @ `c908ea4`  
+> **Active Branch:** `task/supervisor` @ `9a5b56d`  
 > **Last Verified:** September 21, 2026  
-> **Test Suite Status:** **692 passed in 39.73s**, 0 failed (100% GREEN)  
+> **Test Suite Status:** **711 passed in 39.49s**, 0 failed (100% GREEN)  
 > **Orchestrator State:** `F:\JARVIS_ORCHESTRATOR_STATE\`
 
 ---
@@ -35,7 +35,8 @@ The core architecture follows the foundational principle: **"The model proposes;
 | **M2.3: Memory Consolidation Pipeline** | `82085c1` | VERIFIED & MERGED | 413 passed |
 | **M2.4: Hermetic Verification Ladder** | `afa6beb` (on `main`) | VERIFIED & MERGED | 420 passed |
 | **M2.5: PII Seam & Data Privacy Policy** | `07a30a1` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 682 passed |
-| **M2.6: Hermetic Filesystem Effect & Sandbox** | `c908ea4` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **692 passed** |
+| **M2.6: Hermetic Filesystem Effect & Sandbox** | `c908ea4` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 692 passed |
+| **M2.7: Manifest Compilation & DAG Validation** | `9a5b56d` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **711 passed** |
 | **M3.1: Autonomous Engineering Supervisor** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 548 passed |
 | **M3.2: Multi-Step Mission Execution Loop** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 564 passed |
 | **M3.3: Dynamic Worker Orchestration & L7 Bridges** | `ce605bc` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 629 passed |
@@ -60,6 +61,7 @@ The core architecture follows the foundational principle: **"The model proposes;
 - **Budget Ledger (`budget_ledger.py`)**: Mission and session token/cost accounting fold.
 - **PII Seam & Privacy Policy (`privacy.py`)**: Deterministic data classification, regex/pattern-based PII detection/redaction, and fail-closed privacy gate.
 - **Filesystem Effect & Sandbox (`src/jarvis/effects/filesystem.py`)**: Path-jailed filesystem operations behind `EffectEnvelopeEngine`, atomic writes with pre-mutation backup, and byte-identical rollback.
+- **Manifest DAG & Compilation (`src/jarvis/kernel/manifest_dag.py`)**: Static acyclic dependency validation, cycle detection, and parallel vs. serial execution wave planning based on declared resource locks.
 
 ### B. Autonomous Engineering Supervisor (`src/jarvis/supervisor/`)
 1. **`authority.py`**: Deterministic L0/L1/L2 authority tiers and escalation classification (9 reasons).
@@ -73,7 +75,7 @@ The core architecture follows the foundational principle: **"The model proposes;
 - **`scripts/verify.py`**: Independent L0 Verification Authority. Enforces pytest run, compares frozen baseline against commit `7607a6f`, runs review probes, captures authority fingerprint, and emits canonical JSON evidence.
 - **`scripts/journal.py`**: Append-only hash-chained fsync-durable JSONL journal.
 - **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`) enforcing single-writer locks (`supervisor.lock`) and durable ledger updates (`ledger.json`).
-- **Milestones M3.1–M3.5, M2.5 & M2.6 Accepted**: Recorded in `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json`, `M3.2.json`, `M3.3.json`, `M3.4.json`, `M3.5.json`, `M2.5.json`, and `M2.6.json`.
+- **Milestones M3.1–M3.5, M2.5, M2.6 & M2.7 Accepted**: Recorded in `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json`, `M3.2.json`, `M3.3.json`, `M3.4.json`, `M3.5.json`, `M2.5.json`, `M2.6.json`, and `M2.7.json`.
 
 ---
 
@@ -85,7 +87,7 @@ The core architecture follows the foundational principle: **"The model proposes;
 ├───────────────────┬───────────────────┬────────────────────────────────┤
 │    MILESTONE      │       SCOPE       │           STATUS               │
 ├───────────────────┼───────────────────┼────────────────────────────────┤
-│ M2 Residuals      │ M2.7 – M2.10      │ Active focus (M2.5-2.6 sealed) │
+│ M2 Residuals      │ M2.8 – M2.10      │ Active focus (M2.5-2.7 sealed) │
 │ M3 Orchestrator   │ M3.1 – M3.5       │ ✅ 100% COMPLETE & FROZEN      │
 │ M4 Multimodal     │ Vision / Voice    │ Planned after M2 residuals     │
 │ M5 Robotics       │ Physical Nodes    │ Long-term directional          │
@@ -106,15 +108,11 @@ The core architecture follows the foundational principle: **"The model proposes;
 - [x] Implement atomic write-with-backup and rollback capability for filesystem mutations.
 - [x] Unit tests: Verify path traversal attempts fail and rollback restores byte-identical state (10 tests).
 
-#### 3. M2.7 — Manifest Compilation & DAG Validation (`src/jarvis/kernel/manifest_dag.py`)
-- [ ] Static acyclic dependency validation for multi-effect intent manifests.
-- [ ] Parallel vs. serial effect execution planner based on declared resource locks.
-- [ ] Unit tests: Cycle detection in effect graphs, deterministic topological sort.
-
-#### 3. M2.7 — Manifest Compilation & DAG Validation (`src/jarvis/kernel/manifest_dag.py`)
-- [ ] Static acyclic dependency validation for multi-effect intent manifests.
-- [ ] Parallel vs. serial effect execution planner based on declared resource locks.
-- [ ] Unit tests: Cycle detection in effect graphs, deterministic topological sort.
+#### 3. M2.7 — Manifest Compilation & DAG Validation (`src/jarvis/kernel/manifest_dag.py`) [COMPLETED & FROZEN]
+- [x] Static acyclic dependency validation for multi-effect intent manifests (`validate_acyclic`).
+- [x] Parallel vs. serial effect execution planner based on declared resource locks (`plan_execution_stages`).
+- [x] Manifest adapter and deterministic work order digest (`compile_manifest_dag`, `compile_from_manifest`).
+- [x] Unit tests: Cycle detection in effect graphs, deterministic topological sort, lock conflict scheduling (19 tests).
 
 #### 4. M2.8 — Key-Based Creator Authority (`src/jarvis/kernel/crypto_authority.py`)
 - [ ] Ed25519 signature verification for creator-gated actions (reopen, merge proposal, policy override).
