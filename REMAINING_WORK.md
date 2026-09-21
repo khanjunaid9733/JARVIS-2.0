@@ -1,9 +1,9 @@
 # JARVIS 2.0 — COMPREHENSIVE ROADMAP & REMAINING WORK
 
 > **Repository Root:** `F:\JARVIS2.0`  
-> **Active Branch:** `task/supervisor` @ `15c4fe9`  
+> **Active Branch:** `task/supervisor` @ `07a30a1`  
 > **Last Verified:** September 21, 2026  
-> **Test Suite Status:** **664 passed in 39.24s**, 0 failed (100% GREEN)  
+> **Test Suite Status:** **682 passed in 41.05s**, 0 failed (100% GREEN)  
 > **Orchestrator State:** `F:\JARVIS_ORCHESTRATOR_STATE\`
 
 ---
@@ -34,11 +34,12 @@ The core architecture follows the foundational principle: **"The model proposes;
 | **M2.2: Embedding & Retrieval Seams** | `e417de3` | VERIFIED & MERGED | 385 passed |
 | **M2.3: Memory Consolidation Pipeline** | `82085c1` | VERIFIED & MERGED | 413 passed |
 | **M2.4: Hermetic Verification Ladder** | `afa6beb` (on `main`) | VERIFIED & MERGED | 420 passed |
-| **M2.5 / M3.1: Autonomous Engineering Supervisor** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 548 passed |
+| **M2.5: PII Seam & Data Privacy Policy** | `07a30a1` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **682 passed** |
+| **M3.1: Autonomous Engineering Supervisor** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 548 passed |
 | **M3.2: Multi-Step Mission Execution Loop** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 564 passed |
 | **M3.3: Dynamic Worker Orchestration & L7 Bridges** | `ce605bc` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 629 passed |
 | **M3.4: Automated Failure Recovery & Rollback Engine** | `0f43bcf` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 590 passed → 629 (reconciled) |
-| **M3.5: Supervisor Daemon (Lease/Heartbeat + Orphan Recovery + Ledger Fold)** | `15c4fe9` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **664 passed** |
+| **M3.5: Supervisor Daemon (Lease/Heartbeat + Orphan Recovery + Ledger Fold)** | `15c4fe9` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 664 passed |
 
 ---
 
@@ -56,6 +57,7 @@ The core architecture follows the foundational principle: **"The model proposes;
 - **Done Gate (`done_gate.py`)**: Deterministic completion gate enforcing evidence before `task.completed`.
 - **Mission Lifecycle (`mission_lifecycle.py`)**: Deterministic lifecycle FSM folding over event streams.
 - **Budget Ledger (`budget_ledger.py`)**: Mission and session token/cost accounting fold.
+- **PII Seam & Privacy Policy (`privacy.py`)**: Deterministic data classification, regex/pattern-based PII detection/redaction, and fail-closed privacy gate.
 
 ### B. Autonomous Engineering Supervisor (`src/jarvis/supervisor/`)
 1. **`authority.py`**: Deterministic L0/L1/L2 authority tiers and escalation classification (9 reasons).
@@ -69,7 +71,7 @@ The core architecture follows the foundational principle: **"The model proposes;
 - **`scripts/verify.py`**: Independent L0 Verification Authority. Enforces pytest run, compares frozen baseline against commit `7607a6f`, runs review probes, captures authority fingerprint, and emits canonical JSON evidence.
 - **`scripts/journal.py`**: Append-only hash-chained fsync-durable JSONL journal.
 - **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`) enforcing single-writer locks (`supervisor.lock`) and durable ledger updates (`ledger.json`).
-- **Milestones M3.1, M3.2, M3.3, M3.4 & M3.5 Accepted**: Recorded in `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json`, `M3.2.json`, `M3.3.json`, `M3.4.json`, and `M3.5.json`.
+- **Milestones M3.1, M3.2, M3.3, M3.4, M3.5 & M2.5 Accepted**: Recorded in `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json`, `M3.2.json`, `M3.3.json`, `M3.4.json`, `M3.5.json`, and `M2.5.json`.
 
 ---
 
@@ -81,20 +83,20 @@ The core architecture follows the foundational principle: **"The model proposes;
 ├───────────────────┬───────────────────┬────────────────────────────────┤
 │    MILESTONE      │       SCOPE       │           STATUS               │
 ├───────────────────┼───────────────────┼────────────────────────────────┤
-│ M2 Residuals      │ M2.5 – M2.10      │ Ready for incremental build    │
-│ M3 Orchestrator   │ M3.5              │ Current active focus (M3.2-3.4)│
-│ M4 Multimodal     │ Vision / Voice    │ Planned after M3               │
+│ M2 Residuals      │ M2.6 – M2.10      │ Active focus (M2.5 sealed)     │
+│ M3 Orchestrator   │ M3.1 – M3.5       │ ✅ 100% COMPLETE & FROZEN      │
+│ M4 Multimodal     │ Vision / Voice    │ Planned after M2 residuals     │
 │ M5 Robotics       │ Physical Nodes    │ Long-term directional          │
 └───────────────────┴───────────────────┴────────────────────────────────┘
 ```
 
 ### Phase 1: Milestone M2 Residuals (Memory & Capability Hardening)
 
-#### 1. M2.5 — PII Seam & Data Privacy Policy (`src/jarvis/kernel/privacy/`)
-- [ ] Implement data classification tags (`PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `RESTRICTED`).
-- [ ] Add automatic regex and NER-based redaction filters on memory trace ingestion.
-- [ ] Enforce fail-closed privacy checks in `PolicyEngine` before writing to persistent projections.
-- [ ] Unit tests: Prove that unredacted PII is rejected and audit events are emitted.
+#### 1. M2.5 — PII Seam & Data Privacy Policy (`src/jarvis/kernel/privacy.py`) [COMPLETED & FROZEN]
+- [x] Implement data classification tags (`PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `RESTRICTED`).
+- [x] Add automatic regex and pattern-based redaction filters on memory trace ingestion.
+- [x] Enforce fail-closed privacy checks in `PrivacySanitizer` before writing to persistent projections.
+- [x] Unit tests: Prove that unredacted PII is rejected or redacted, and audit events are emitted (18 tests).
 
 #### 2. M2.6 — Hermetic Filesystem Effect & Sandbox (`src/jarvis/effects/filesystem.py`)
 - [ ] Sandbox file manipulation behind `EffectEnvelopeEngine`.
