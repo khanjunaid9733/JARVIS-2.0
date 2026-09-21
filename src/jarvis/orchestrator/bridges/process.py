@@ -240,16 +240,17 @@ class ContainedProcess:
         """Terminate the worker AND every descendant it spawned."""
         with self._lock:
             proc, job = self._proc, self._job
-        if job is not None:
-            job.terminate()
-            if proc is not None and proc.poll() is not None:
-                return
         if proc is None or proc.poll() is not None:
             return
         if WINDOWS:  # pragma: no cover - Windows only
+            # The Job Object owns only descendants created AFTER assign(pid).
+            # A child spawned in the _popen->assign window escapes it, so the
+            # tree walk must run FIRST, from the live parent PID - it traverses
+            # the real process tree regardless of job membership.
+            _taskkill_tree(proc.pid)
+            if job is not None:
+                job.terminate()
             self.kill()
-            if job is None:
-                _taskkill_tree(proc.pid)
             return
         try:
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
