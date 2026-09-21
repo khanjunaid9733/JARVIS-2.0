@@ -1,9 +1,9 @@
 # JARVIS 2.0 — COMPREHENSIVE ROADMAP & REMAINING WORK
 
 > **Repository Root:** `F:\JARVIS2.0`  
-> **Active Branch:** `task/supervisor` @ `98a82bd`  
+> **Active Branch:** `task/supervisor` @ `15c4fe9`  
 > **Last Verified:** September 21, 2026  
-> **Test Suite Status:** **629 passed in 37.45s**, 0 failed (100% GREEN)  
+> **Test Suite Status:** **664 passed in 39.24s**, 0 failed (100% GREEN)  
 > **Orchestrator State:** `F:\JARVIS_ORCHESTRATOR_STATE\`
 
 ---
@@ -36,8 +36,9 @@ The core architecture follows the foundational principle: **"The model proposes;
 | **M2.4: Hermetic Verification Ladder** | `afa6beb` (on `main`) | VERIFIED & MERGED | 420 passed |
 | **M2.5 / M3.1: Autonomous Engineering Supervisor** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 548 passed |
 | **M3.2: Multi-Step Mission Execution Loop** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 564 passed |
-| **M3.3: Dynamic Worker Orchestration & L7 Bridges** | `0f43bcf` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 578 passed |
-| **M3.4: Automated Failure Recovery & Rollback Engine** | `0f43bcf` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **629 passed** |
+| **M3.3: Dynamic Worker Orchestration & L7 Bridges** | `ce605bc` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 629 passed |
+| **M3.4: Automated Failure Recovery & Rollback Engine** | `0f43bcf` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 590 passed → 629 (reconciled) |
+| **M3.5: Supervisor Daemon (Lease/Heartbeat + Orphan Recovery + Ledger Fold)** | `15c4fe9` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **664 passed** |
 
 ---
 
@@ -68,7 +69,7 @@ The core architecture follows the foundational principle: **"The model proposes;
 - **`scripts/verify.py`**: Independent L0 Verification Authority. Enforces pytest run, compares frozen baseline against commit `7607a6f`, runs review probes, captures authority fingerprint, and emits canonical JSON evidence.
 - **`scripts/journal.py`**: Append-only hash-chained fsync-durable JSONL journal.
 - **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`) enforcing single-writer locks (`supervisor.lock`) and durable ledger updates (`ledger.json`).
-- **Milestones M3.1, M3.2, M3.3 & M3.4 Accepted**: Recorded in `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json`, `M3.2.json`, `M3.3.json`, and `M3.4.json`.
+- **Milestones M3.1, M3.2, M3.3, M3.4 & M3.5 Accepted**: Recorded in `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json`, `M3.2.json`, `M3.3.json`, `M3.4.json`, and `M3.5.json`.
 
 ---
 
@@ -150,10 +151,13 @@ The core architecture follows the foundational principle: **"The model proposes;
 - [x] Automated `ESCALATE` generating human-actionable escalation bundles.
 - [x] 12 unit tests passing in `tests/orchestrator/test_recovery_engine.py`.
 
-#### 4. M3.5 — Standalone Supervisor Daemon (`src/jarvis/orchestrator/daemon.py`)
-- [ ] Background daemon process watching `F:\JARVIS_ORCHESTRATOR_STATE\leases\`.
-- [ ] Heartbeat monitor: terminate dead workers and reclaim locks after TTL expiration.
-- [ ] State synchronization: maintain `ledger.json` as a pure fold over `journal.jsonl`.
+#### 4. M3.5 — Supervisory Daemon Decision Plane (`src/jarvis/orchestrator/daemon.py`) [COMPLETED & FROZEN]
+- [x] Lease/heartbeat adjudication (FRESH / STALLED / ORPHANED / DUPLICATE) per §9 four-state table.
+- [x] Dispatch-trace recovery fold per §13 restart table (INTENT-only → UNKNOWN, INTENT+STARTED → ORPHAN, STARTED+COMPLETED → NORMAL, retry with NEW dispatch_id).
+- [x] `ledger.json` maintained as a pure fold over `journal.jsonl` (never written directly).
+- [x] Hermetic `SupervisorDaemon.run_tick` decision engine - effects only through an injected `Effects` seam.
+- [x] 35 unit tests passing in `tests/orchestrator/test_daemon.py`. Suite 664 green = 310 kernel + 121 supervisor + 98 orchestrator + 84 review probes + 21 bootstrap/CLI + 15 acceptance + 15 providers.
+- [x] **F-M3.3-FB-2 hardening follow-up**: `ContainedProcess.terminate()` on Windows now runs `taskkill /F /T` from the live parent FIRST (closes the `_popen`→`assign(pid)` race where a grandchild escaped the Job Object). Verified stable across repeated full-suite runs.
 
 ---
 
@@ -188,7 +192,7 @@ git status
 # 3. Check orchestrator status and current milestone
 uv run python scripts/supervisor.py status
 
-# 4. Verify test suite health (must be 548 passing)
+# 4. Verify test suite health (must be 664 passing)
 uv run pytest -q
 
 # 5. Read context documents before making any changes

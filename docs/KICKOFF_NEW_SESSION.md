@@ -9,21 +9,21 @@
 | Datum | Verified Reality | Status |
 |---|---|---|
 | **Directory** | `F:\JARVIS2.0` (NEVER use `C:\Users\khanj\jarvis_home`) | ACTIVE WORKSPACE |
-| **Branch** | `task/supervisor` @ `98a82bd` | ACTIVE |
+| **Branch** | `task/supervisor` @ `15c4fe9` | ACTIVE |
 | **Main Baseline** | `main` @ `afa6beb` (M2.4 merged) | FROZEN |
 | **Baseline Commit** | `7607a6f1f226824b5a7038e15efd66932529da7c` | IMMUTABLE |
 | **Core Kernel** | `src/jarvis/kernel/**` byte-identical to `main` | UNTOUCHED (0 diffs) |
-| **Test Suite** | **629 passed in 37.45s**, 0 failed | 100% GREEN |
+| **Test Suite** | **664 passed in 39.24s**, 0 failed | 100% GREEN |
 | **Active Plan** | M3 Orchestrator / Autonomous Engineering Supervisor | IN PROGRESS |
 | **State Directory** | `F:\JARVIS_ORCHESTRATOR_STATE\` | INITIALIZED & ACTIVE |
-| **Frozen Packages** | `["M3.1", "M3.2", "M3.3", "M3.4"]` (signed in `evidence/`) | ACCEPTED |
+| **Frozen Packages** | `["M3.1", "M3.2", "M3.3", "M3.4", "M3.5"]` (signed in `evidence/`) | ACCEPTED |
 
 ---
 
 ## 2. What Is Already Implemented & Verified
 
 ### A. The Supervisor Package (`src/jarvis/supervisor/`)
-All 6 contract modules + `__init__.py` exist and export 26 symbols:
+All 6 contract modules + `__init__.py` exist and export 30 symbols (pinned by `tests/supervisor/test_api_contract.py`):
 1. **`authority.py`**: `AuthorityTier` (L0, L1, L2), `EscalationReason` (9 reasons), `decide_authority_tier(reason)`, `is_creator_gated(reason)`. Pure data, deterministic lookup.
 2. **`evidence.py`**: `EvidenceSource` (7 rungs), `EvidencePrecedence` (`FILESYSTEM=7` down to `AGENT_MEMORY=1`), `Evidence`, `EvidenceLedger` (`with_entry`, `highest`, `authority`, `conflicts`), `VerificationResult`.
 3. **`lifecycle.py`**: `LifecycleState` (9 states), `LifecycleEvent` (14 events), `TaskLifecycle` FSM, `lifecycle_transitions` table. `FROZEN_SUCCESS` is absorbing; only creator-gated `REOPEN` moves it.
@@ -32,23 +32,25 @@ All 6 contract modules + `__init__.py` exist and export 26 symbols:
 6. **`supervisor.py`**: `Verifier`, `Observer`, `Acceptor` protocols; `SupervisorDecision`; `Supervisor` (`decide`, `verify`, `freeze`).
 
 ### B. Unit & Integration Tests (`tests/supervisor/`, `tests/orchestrator/`, `tests/review/`)
-All suites passing (629 tests total):
+All suites passing (664 tests total):
 * `tests/supervisor/`: 9 test files (121 tests)
-* `tests/orchestrator/`: 4 test files (42 tests: `mission_runner`, `bridges`, `router`, `recovery_engine`)
-* `tests/review/`: 4 review probe files (including Freebuff's 18 M3.3 probes)
+* `tests/orchestrator/`: 5 test files (98 tests: `mission_runner` 16, `bridges` 20, `router` 15, `recovery_engine` 12, `daemon` 35)
+* `tests/review/`: 4 review probe files (84 probes, including Freebuff's M3.3 probes)
+* Plus: `tests/kernel/` (310), `tests/` root (21), `tests/acceptance/` (15), `tests/providers/` (15)
 
 ### C. Verification & Orchestration Scripts (`scripts/`)
 * **`scripts/verify.py`**: Phase 1 L0 Verification Authority. Enforces pytest suite, compares frozen baseline against commit `7607a6f`, executes review probes, collects authority fingerprint, and emits canonical SHA-256 digested JSON evidence.
 * **`scripts/journal.py`**: Append-only, hash-chained, fsync-durable JSONL journal (`journal.jsonl`).
 * **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`). Enforces single-writer lock (`supervisor.lock`), durable ledger (`ledger.json`), and coordinates verify + journal emission.
 
-### D. Milestones M3.1, M3.2, M3.3 & M3.4 Verified & Frozen
+### D. Milestones M3.1, M3.2, M3.3, M3.4 & M3.5 Verified & Frozen
 * Evidence bundles:
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json` (`sha256:82234d7554342760aaaea6d496e911de7980550bfc9e719f0b051316a4c0d057`)
-  - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.2.json` (`sha256:c7a757db846c04815c73071513e83217a58b7a0450a0760d3e0578821b05777a`)
+  - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.2.json` (`sha256:c2349f8f3acaca67965a4943d35157f15faaec5c2dfa88d0fd033c537446fe63`)
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.3.json` (`sha256:51634863eeeb4c82ce94c5892e72f51ca0a1ae303b58635015def77ede55c603`)
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.4.json` (`sha256:bdf8ec16a4c1ee78ed55bc391d6ec9eaf062ae3a53be14e5375b3b04ed3a22a5`)
-* Ledger updated: `frozen_packages: ["M3.1", "M3.2", "M3.3", "M3.4"]`, `last_known_good: "0f43bcfa9c9e257a4b4e6adc710a456d223a038d"`, `last_verify_exit: 0`.
+  - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.5.json` (`sha256:8430008e2c0eae2b4ba7f063b5b70673a754721b1cac7ab295e946c3914c906e`)
+* Ledger updated: `frozen_packages: ["M3.1", "M3.2", "M3.3", "M3.4", "M3.5"]`, `current_milestone: "M3.5"`, `last_known_good: "15c4fe9965dcb85a8964e019d499c32b762ddfe6"`, `last_verify_exit: 0`.
 
 ---
 
@@ -62,23 +64,19 @@ All suites passing (629 tests total):
 
 ## 4. Current Task & Next Steps
 
-1. **Check Status**:
-   ```bash
-   cd F:\JARVIS2.0
-   uv run python scripts/supervisor.py status
-   ```
-2. **Select Next Milestone**:
-   - Determine next milestone per `docs/ORCHESTRATOR_ARCHITECTURE.md` (e.g., M3.2 or next mission runtime expansion).
-3. **Run Verification**:
+1. **Next milestone**: M3.5 is FROZEN. The next focus per `docs/ORCHESTRATOR_ARCHITECTURE.md` is the next M3 expansion (e.g., wire the daemon's decision plane to the live `leases/` watcher + `Effects` seam as a real background process, or begin M4 Multimodal).
+2. **Run Verification**:
    - For any package, verify using:
      ```bash
      uv run python scripts/supervisor.py verify <PACKAGE>
      ```
+3. **Verify history (do not re-run blindly)**: `journal.jsonl` seq 8 records a REJECT (M3.5 suite flake, `F-M3.3-FB-2` process-tree race) that was fixed by commit `15c4fe9` and followed by seq 9 ACCEPT. A package already accepted in evidence/ should not be re-verified unless its code changes.
 
 ---
 
 ## 5. Non-Negotiable Operating Rules
 
-* **Rule 1**: Do NOT touch `src/jarvis/kernel/`. All work is additive in `src/jarvis/supervisor/`, `scripts/`, or `tests/supervisor/`.
+* **Rule 1**: Do NOT touch `src/jarvis/kernel/`. All work is additive in `src/jarvis/supervisor/`, `src/jarvis/orchestrator/`, `scripts/`, or `tests/`.
 * **Rule 2**: Do NOT merge to `main` or push to `origin`. Those are creator-gated (L2).
-* **Rule 3**: Always run `uv run pytest -q` to verify zero regressions across the 548 existing tests.
+* **Rule 3**: Always run `uv run pytest -q` to verify zero regressions across the 664 existing tests.
+* **Rule 4**: Commit BEFORE running `supervisor.py verify <pkg>` - evidence must be `verify_py_source: git_blob`, never `working_tree`.
