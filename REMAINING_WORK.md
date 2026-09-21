@@ -1,9 +1,9 @@
 # JARVIS 2.0 — COMPREHENSIVE ROADMAP & REMAINING WORK
 
 > **Repository Root:** `F:\JARVIS2.0`  
-> **Active Branch:** `task/supervisor` @ `8a481c2`  
+> **Active Branch:** `task/supervisor` @ `9c2b265`  
 > **Last Verified:** September 21, 2026  
-> **Test Suite Status:** **744 passed in 41.83s**, 0 failed (100% GREEN)  
+> **Test Suite Status:** **758 passed in 43.29s**, 0 failed (100% GREEN)  
 > **Orchestrator State:** `F:\JARVIS_ORCHESTRATOR_STATE\`
 
 ---
@@ -37,7 +37,8 @@ The core architecture follows the foundational principle: **"The model proposes;
 | **M2.5: PII Seam & Data Privacy Policy** | `07a30a1` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 682 passed |
 | **M2.6: Hermetic Filesystem Effect & Sandbox** | `c908ea4` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 692 passed |
 | **M2.7: Manifest Compilation & DAG Validation** | `31d7a55` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 721 passed |
-| **M2.8: Key-Based Creator Authority** | `8a481c2` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **744 passed** |
+| **M2.8: Key-Based Creator Authority** | `8a481c2` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 744 passed |
+| **M2.9: Dynamic Budgets & Circuit Breakers** | `9c2b265` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **758 passed** |
 | **M3.1: Autonomous Engineering Supervisor** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 548 passed |
 | **M3.2: Multi-Step Mission Execution Loop** | `98a82bd` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 564 passed |
 | **M3.3: Dynamic Worker Orchestration & L7 Bridges** | `ce605bc` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 629 passed |
@@ -120,11 +121,11 @@ The core architecture follows the foundational principle: **"The model proposes;
 - [x] Replace simple `principal_id == "creator"` string equality with cryptographic signature verification (`NAT-02` complete).
 - [x] Unit tests: Prove that tampered signatures or forged keys are rejected with `AuthorityUnavailable` (23 tests).
 
-#### 5. M2.9 — Dynamic Budgets & Circuit Breakers (`src/jarvis/kernel/circuit_breaker.py`)
-- [ ] Sliding-window rate limiters for external model and API providers.
-- [ ] Dynamic budget enforcement: hard token/cost ceiling per session and per mission.
-- [ ] Automatic trip to `HOLD` when error rates exceed threshold.
-- [ ] Unit tests: Invariant tests under simulated provider outages and token exhaustion.
+#### 5. M2.9 — Dynamic Budgets & Circuit Breakers (`src/jarvis/kernel/circuit_breaker.py`) [COMPLETED & FROZEN]
+- [x] Sliding-window rate limiters for external model and API providers.
+- [x] Dynamic budget enforcement: hard token/cost ceiling per session and per mission.
+- [x] Automatic trip to `HOLD` when error rates exceed threshold.
+- [x] Unit tests: Invariant tests under simulated provider outages and token exhaustion (14 tests).
 
 #### 6. M2.10 — Unified Memory Checkpoint & Single State Digest (`src/jarvis/kernel/checkpoint.py`)
 - [ ] Unify `MemoryIndex.digest()` with `MemoryProjection.digest()`.
