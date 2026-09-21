@@ -55,7 +55,7 @@ status:
   m1_gate_review_predecessor: "superseded"  # earlier request docs/M1_REDTEAM_REQUEST.md targeted main @ 814d8bd in worktree F:\JARVIS-rt-m1 (branch review/m1-gate @ a6a16aa); superseded by the df72c4a freeze (M6 carry-over + s112 fix now in scope)
   m1_must_tier_verification: "antigravity_verified_cross_environment_confirmed_f8d8a77"  # 2026-09-18: independent read-only audit of all 12 s134.1 MUST items + NAT-01..05 + s112 subset on main @ f8d8a77; 231 passed; verdict CROSS_ENVIRONMENT_CONFIRMED: M1_MUST_TIER_COMPLETE. Gate remains open pending Freebuff red-team + creator sign-off
   m2_memory_os:
-    status: "m2_7_completed"  # 2026-09-21; M2.7 (manifest compilation & DAG validation) verified & accepted; 711 passed
+    status: "m2_7_completed"  # 2026-09-21; M2.7 (manifest compilation & DAG validation) verified & accepted; 721 passed
     creator_rulings_accepted:  # 2026-09-19
       - "FB-1 recall tier distinction -> DEFERRED to M2.2 (RecalledMemory frozen; rerank seam carries tier/verification)"
       - "FB-2 dual NAT-03 digest -> MemoryIndex.digest() becomes the single memory-tract digest when M2.10 recovery folds providers; module-7 digest remains frozen M1 ledger digest"

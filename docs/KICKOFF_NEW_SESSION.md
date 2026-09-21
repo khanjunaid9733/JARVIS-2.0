@@ -9,11 +9,11 @@
 | Datum | Verified Reality | Status |
 |---|---|---|
 | **Directory** | `F:\JARVIS2.0` (NEVER use `C:\Users\khanj\jarvis_home`) | ACTIVE WORKSPACE |
-| **Branch** | `task/supervisor` @ `9a5b56d` | ACTIVE |
+| **Branch** | `task/supervisor` @ `31d7a55` | ACTIVE |
 | **Main Baseline** | `main` @ `afa6beb` (M2.4 merged) | FROZEN |
 | **Baseline Commit** | `7607a6f1f226824b5a7038e15efd66932529da7c` | IMMUTABLE |
 | **Core Kernel** | `src/jarvis/kernel/**` byte-identical to `main` | UNTOUCHED (0 diffs) |
-| **Test Suite** | **711 passed in 39.49s**, 0 failed | 100% GREEN |
+| **Test Suite** | **721 passed in 39.51s**, 0 failed | 100% GREEN |
 | **Active Plan** | M2 Residuals / Memory & Capability Hardening | IN PROGRESS |
 | **State Directory** | `F:\JARVIS_ORCHESTRATOR_STATE\` | INITIALIZED & ACTIVE |
 | **Frozen Packages** | `["M3.1", "M3.2", "M3.3", "M3.4", "M3.5", "M2.5", "M2.6", "M2.7"]` (signed in `evidence/`) | ACCEPTED |
@@ -32,10 +32,10 @@ All 6 contract modules + `__init__.py` exist and export 30 symbols (pinned by `t
 6. **`supervisor.py`**: `Verifier`, `Observer`, `Acceptor` protocols; `SupervisorDecision`; `Supervisor` (`decide`, `verify`, `freeze`).
 
 ### B. Unit & Integration Tests (`tests/supervisor/`, `tests/orchestrator/`, `tests/review/`, `tests/kernel/`, `tests/effects/`)
-All suites passing (711 tests total):
+All suites passing (721 tests total):
 * `tests/supervisor/`: 9 test files (121 tests)
 * `tests/orchestrator/`: 5 test files (98 tests: `mission_runner` 16, `bridges` 20, `router` 15, `recovery_engine` 12, `daemon` 35)
-* `tests/review/`: 4 review probe files (84 probes, including Freebuff's M3.3 probes)
+* `tests/review/`: 5 review probe files (94 probes, including Freebuff's M3.3 and M2.7 probes)
 * `tests/kernel/`: 19 test files (347 tests, including M2.5 `test_privacy.py` 18 tests, M2.7 `test_manifest_dag.py` 19 tests)
 * `tests/effects/`: 1 test file (10 tests: `test_filesystem.py`)
 * Plus: `tests/` root (21), `tests/acceptance/` (15), `tests/providers/` (15)
@@ -43,7 +43,7 @@ All suites passing (711 tests total):
 ### C. Verification & Orchestration Scripts (`scripts/`)
 * **`scripts/verify.py`**: Phase 1 L0 Verification Authority. Enforces pytest suite, compares frozen baseline against commit `7607a6f`, executes review probes, collects authority fingerprint, and emits canonical SHA-256 digested JSON evidence.
 * **`scripts/journal.py`**: Append-only, hash-chained, fsync-durable JSONL journal (`journal.jsonl`).
-* **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`). Enforces single-writer lock (`supervisor.lock`), durable ledger (`ledger.json`), and coordinates verify + journal emission.
+* **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`) enforcing single-writer lock (`supervisor.lock`), durable ledger (`ledger.json`), and coordinates verify + journal emission.
 
 ### D. Milestones M3.1–M3.5, M2.5, M2.6 & M2.7 Verified & Frozen
 * Evidence bundles:
@@ -54,8 +54,8 @@ All suites passing (711 tests total):
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.5.json` (`sha256:8430008e2c0eae2b4ba7f063b5b70673a754721b1cac7ab295e946c3914c906e`)
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M2.5.json` (`sha256:dabeb4de8edff01611a0be90b25fc443566c5bc3fecd7b4681a0c510fcf6c1e4`)
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M2.6.json` (`sha256:d61561b58f23062257d6d20170445825be365601d4600f2fa7813d1aea6f6cb5`)
-  - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M2.7.json` (`sha256:f1ef41f81b7b2326de3071fffa6b3cb9782b390cf07561929e87b065bf6bec2a`)
-* Ledger updated: `frozen_packages: ["M3.1", "M3.2", "M3.3", "M3.4", "M3.5", "M2.5", "M2.6", "M2.7"]`, `current_milestone: "M2.7"`, `last_known_good: "9a5b56d0dad8c3ab00edc961038186eed4ab70b5"`, `last_verify_exit: 0`.
+  - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M2.7.json` (`sha256:79a2be3e13ce3b065f29b6afa5ec4ceec0fa200a66d9ccb21e416b177201d412`)
+* Ledger updated: `frozen_packages: ["M3.1", "M3.2", "M3.3", "M3.4", "M3.5", "M2.5", "M2.6", "M2.7"]`, `current_milestone: "M2.7"`, `last_known_good: "31d7a555c3cc9771beaf6d1fbaac354b8d4a4f2d"`, `last_verify_exit: 0`.
 
 ---
 
