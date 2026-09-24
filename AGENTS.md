@@ -113,11 +113,11 @@ This project uses a specialized multi-AI division of labor. Identify which agent
 
 ```text
 CURRENT STAGE: PHASE 4 — M5 (Embodiment & External Device Nodes)
-ACTIVE PACKAGE: M5.3 (Distributed Event Log Replication & Peer Sync)
-FOUNDATIONAL MILESTONES: M0, M1, M2, M3, M4, M5.1, M5.2 — ALL COMPLETE & VERIFIED (835 GREEN TESTS)
+ACTIVE PACKAGE: M5.5 (Physical Safety Plane & Hardware E-Stop)
+FOUNDATIONAL MILESTONES: M0, M1, M2, M3, M4, M5.1, M5.2, M5.3, M5.4 — ALL COMPLETE & VERIFIED (852 GREEN TESTS)
 AUTOMATIC TOOL INSTALLATIONS: FORBIDDEN
 ```
 
-M0 through M4, along with M5.1 and M5.2, are verified complete and frozen (835 passing tests).
-Work on Phase 4 / M5.3 (Distributed Event Log Replication & Peer Sync) is formally authorized and accepted per `docs/M5_KICKOFF.md`.
-OpenCode (Big Pickle) is authorized and directed to implement `src/jarvis/kernel/sync/replication.py` and `tests/kernel/test_log_sync.py` to satisfy the M5.3 specification. Antigravity acts as the objective auditor and verification gate.
+M0 through M4, along with M5.1, M5.2, M5.3, and M5.4, are verified complete and frozen (852 passing tests).
+Work on Phase 4 / M5.5 (Physical Safety Plane & Hardware E-Stop) is formally authorized and accepted per `docs/M5_KICKOFF.md`.
+OpenCode and Antigravity implement and verify `src/jarvis/safety/` and `tests/safety/test_estop.py` to satisfy the final package of Milestone M5.
