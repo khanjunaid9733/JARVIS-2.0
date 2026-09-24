@@ -19,7 +19,7 @@ spec:
 
 status:
   implementation: "in_progress"
-  milestone: "m5_5_safety_in_progress"
+  milestone: "m5_completed"
   m0_audit: "completed_m0_m4_verified_green_827_tests"
   m1_readiness_patch: "applied_and_frozen"
   m1_kernel: "verified_green"
@@ -84,7 +84,7 @@ status:
       - "recovery git rollback: GitSeam not injected - ROLLBACK is declared, never executed"
       - "multimodal vision: VisionModelAdapter remains library-only (no image turn)"
       - "audio playback: the turn writes the WAV beside the log and names the path; it does not open a speaker"
-  m5_robotics: "m5_5_safety_in_progress"
+  m5_robotics: "m5_completed_verified_860_tests"
 
 authority:
   architecture: "docs/MASTER_BUILD_SPEC.md"
@@ -139,10 +139,10 @@ m1_definition_of_done:
     - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)"
 
 current_task:
-  status: "m5_5_safety_in_progress"
+  status: "m5_completed"
   phase: "phase_4_m5_embodiment"
-  objective: "implement M5.5 physical safety plane and hardware e-stop"
-  next_step: "draft M5.5 design kickoff and implement safety/estop.py, watchdog.py, and test_estop.py"
+  objective: "all 5 packages of Milestone M5 (HTN planner, external node RPC, event log sync, peripheral control, physical safety plane) implemented, tested, and verified"
+  next_step: "Milestone M5 complete (860 green tests). Ready for Phase 5 / living deployment."
 
 m1_1_stretch:
   status: "modules_15_17_reconciled"  # module 14 + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit (46e0d98) findings F-M15-1/F-M16-1/F-M17-1/F-M17-2 all fixed + regression tests

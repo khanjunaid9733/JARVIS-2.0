@@ -112,12 +112,11 @@ This project uses a specialized multi-AI division of labor. Identify which agent
 ## 5. CURRENT STAGE & AUTHORIZATION
 
 ```text
-CURRENT STAGE: PHASE 4 — M5 (Embodiment & External Device Nodes)
-ACTIVE PACKAGE: M5.5 (Physical Safety Plane & Hardware E-Stop)
-FOUNDATIONAL MILESTONES: M0, M1, M2, M3, M4, M5.1, M5.2, M5.3, M5.4 — ALL COMPLETE & VERIFIED (852 GREEN TESTS)
+CURRENT STAGE: PHASE 4 — M5 (Embodiment & External Device Nodes) — COMPLETE & FROZEN
+COMPLETED PACKAGES: M5.1 (HTN Planner), M5.2 (External Node RPC), M5.3 (Log Sync), M5.4 (Peripherals), M5.5 (Safety Plane & E-Stop)
+FOUNDATIONAL MILESTONES: M0, M1, M2, M3, M4, M5 — ALL COMPLETE & VERIFIED (860 GREEN TESTS)
 AUTOMATIC TOOL INSTALLATIONS: FORBIDDEN
 ```
 
-M0 through M4, along with M5.1, M5.2, M5.3, and M5.4, are verified complete and frozen (852 passing tests).
-Work on Phase 4 / M5.5 (Physical Safety Plane & Hardware E-Stop) is formally authorized and accepted per `docs/M5_KICKOFF.md`.
-OpenCode and Antigravity implement and verify `src/jarvis/safety/` and `tests/safety/test_estop.py` to satisfy the final package of Milestone M5.
+All 5 packages of Milestone M5 (Embodiment & External Device Nodes) are verified complete, fully tested, and frozen (860 passing automated tests, 0 regressions).
+Physical embodiment, distributed node synchronization, peripheral hardware interfaces, and the fail-closed physical safety plane are verified per `docs/M5_KICKOFF.md` through `docs/M5_5_KICKOFF.md`.
