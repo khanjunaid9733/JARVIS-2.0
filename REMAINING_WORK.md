@@ -1,9 +1,9 @@
 # JARVIS 2.0 — COMPREHENSIVE ROADMAP & REMAINING WORK
 
 > **Repository Root:** `F:\JARVIS2.0`  
-> **Active Branch:** `task/supervisor`  
+> **Active Branch:** `task/supervisor` @ `e2ac1c2`  
 > **Last Verified:** September 24, 2026  
-> **Test Suite Status:** **793 passed in 43.54s**, 0 failed (100% GREEN; 785 before the live loop)  
+> **Test Suite Status:** **835 passed in 258.07s**, 0 failed (100% GREEN)  
 > **Orchestrator State:** `F:\JARVIS_ORCHESTRATOR_STATE\`
 
 ---
@@ -45,7 +45,9 @@ The core architecture follows the foundational principle: **"The model proposes;
 | **M3.3: Dynamic Worker Orchestration & L7 Bridges** | `ce605bc` (on `task/supervisor`) | **VERIFIED & RECONCILED** | 629 passed |
 | **M3.4: Automated Failure Recovery & Rollback Engine** | `0f43bcf` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 590 passed → 629 (reconciled) |
 | **M3.5: Supervisor Daemon (Lease/Heartbeat + Orphan Recovery + Ledger Fold)** | `15c4fe9` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 664 passed |
-| **M4: Multimodal Cognition (Vision & Speech)** | `70d535f` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **785 passed** |
+| **M4: Multimodal Cognition (Vision & Speech)** | `70d535f` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 785 passed |
+| **M5.1: Hierarchical Task Network (HTN) Planner** | `de36217` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | 826 passed |
+| **M5.2: External Node Protocol & Lightweight RPC Seam** | `e2ac1c2` (on `task/supervisor`) | **VERIFIED & ACCEPTED** | **835 passed** |
 
 ---
 
@@ -107,6 +109,11 @@ Named seams (reported in the command output, never as verified): no microphone d
 - **Vision Processing (`vision.py`)**: `VisionModelAdapter` (`vision.describe`, `vision.analyze` v1.0.0) implementing `ProviderAdapter`.
 - **Streaming Event Loop (`streaming.py`)**: `VoiceTurnState` 6-state machine (`IDLE`, `LISTENING`, `USER_SPEAKING`, `THINKING`, `ASSISTANT_SPEAKING`, `INTERRUPTED`) and `StreamingVoiceLoop` with real-time barge-in interruption handling and event log auditing.
 
+### F. Embodiment & External Device Nodes (`src/jarvis/nodes/`, `src/jarvis/kernel/planner/`)
+- **HTN Planner (`src/jarvis/kernel/planner/`)**: Hierarchical Task Network decomposition engine (`HTNPlanner`), primitive vs. composite task resolution, domain/method definitions, deterministic state predicate evaluation, and adapter integration with the orchestrator `Decomposer` seam (`HTNDecomposerAdapter`).
+- **External Node Protocol (`src/jarvis/nodes/protocol.py`)**: Strongly typed data contracts: `NodeType`, `PairingState`, `NodeCapability`, `NodeSpec`, `PairingRequest`, `PairingResponse`, `RPCRequest`, `RPCResponse`, and `HeartbeatPacket`.
+- **Node Manager & Transport Seam (`src/jarvis/nodes/rpc_adapter.py`)**: `NodeTransport` protocol, `NodeManager` supporting ambiguity-free `XXXX-XXXX` pairing code registration with TTL, mutual attestation handshake, capability filtering (fail-closed pre-dispatch rejection for undeclared capabilities), authenticated RPC dispatch, and real-time heartbeat monitoring with fail-closed disconnection (>15s timeout) transitioning node state to `HOLD`.
+
 ---
 
 ## 3. Detailed Breakdown of Remaining Work
@@ -120,7 +127,7 @@ Named seams (reported in the command output, never as verified): no microphone d
 │ M2 Residuals      │ M2.8 – M2.10      │ ✅ 100% COMPLETE & FROZEN      │
 │ M3 Orchestrator   │ M3.1 – M3.5       │ ✅ 100% COMPLETE & FROZEN      │
 │ M4 Multimodal     │ Vision / Voice    │ ✅ 100% COMPLETE & FROZEN      │
-│ M5 Robotics       │ Physical Nodes    │ Long-term directional          │
+│ M5 Robotics/Nodes │ M5.1 – M5.2       │ ✅ M5.1/M5.2 VERIFIED & SEALED │
 └───────────────────┴───────────────────┴────────────────────────────────┘
 ```
 
@@ -209,6 +216,8 @@ Named seams (reported in the command output, never as verified): no microphone d
 
 ### Phase 4: Milestone M5 — Embodiment & External Device Nodes
 
+- [x] **M5.1 — Hierarchical Task Network (HTN) Planner (`src/jarvis/kernel/planner/`)**: HTN decomposition, primitive vs. composite task resolution, precondition checking, state-effect application, and `Decomposer` adapter integration. (33 tests in `tests/kernel/test_htn_planner.py`).
+- [x] **M5.2 — External Node Protocol & Lightweight RPC Seam (`src/jarvis/nodes/protocol.py`, `src/jarvis/nodes/rpc_adapter.py`)**: Typed node specifications, capability contracts, mutual pairing handshake via `XXXX-XXXX` codes with TTL, authenticated RPC dispatch with capability filtering, heartbeat packet monitoring with fail-closed disconnect (>15s timeout) transitioning nodes to `HOLD`. (8 tests in `tests/nodes/test_node_rpc.py`).
 - [ ] Phone node integration via lightweight RPC.
 - [ ] IoT and hardware peripheral control contracts behind provider adapters.
 - [ ] Distributed event log synchronization across nodes.
