@@ -105,6 +105,7 @@ This project uses a specialized multi-AI division of labor. Identify which agent
   - Audit codebase quality, security boundaries, typing, performance, and test coverage.
   - Validate that external tools remain strictly behind provider adapters.
   - Do not modify project code unless explicitly instructed by the creator.
+  - Directly orchestrate sub-agents (OpenCode / Freebuff) headlessly via verified scripts/bridges (`scripts/control_opencode.py`); never claim inability due to terminal separation or instruct the creator to manually copy-paste prompts.
 
 ---
 
