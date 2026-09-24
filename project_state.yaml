@@ -19,7 +19,7 @@ spec:
 
 status:
   implementation: "in_progress"
-  milestone: "m5_2_nodes_in_progress"
+  milestone: "m5_3_replication_in_progress"
   m0_audit: "completed_m0_m4_verified_green_827_tests"
   m1_readiness_patch: "applied_and_frozen"
   m1_kernel: "verified_green"
@@ -84,7 +84,7 @@ status:
       - "recovery git rollback: GitSeam not injected - ROLLBACK is declared, never executed"
       - "multimodal vision: VisionModelAdapter remains library-only (no image turn)"
       - "audio playback: the turn writes the WAV beside the log and names the path; it does not open a speaker"
-  m5_robotics: "m5_2_nodes_in_progress"
+  m5_robotics: "m5_3_replication_in_progress"
 
 authority:
   architecture: "docs/MASTER_BUILD_SPEC.md"
@@ -139,10 +139,10 @@ m1_definition_of_done:
     - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)"
 
 current_task:
-  status: "m5_2_external_nodes_in_progress"
+  status: "m5_3_replication_in_progress"
   phase: "phase_4_m5_embodiment"
-  objective: "implement M5.2 external node protocol and RPC seam"
-  next_step: "OpenCode builder implements rpc_adapter.py and test_node_rpc.py; Antigravity verifies green test suite"
+  objective: "implement M5.3 distributed event log replication and peer sync"
+  next_step: "draft M5.3 design kickoff and implement replication.py and test_log_sync.py"
 
 m1_1_stretch:
   status: "modules_15_17_reconciled"  # module 14 + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit (46e0d98) findings F-M15-1/F-M16-1/F-M17-1/F-M17-2 all fixed + regression tests

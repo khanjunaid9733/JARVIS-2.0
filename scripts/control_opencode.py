@@ -18,7 +18,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-DEFAULT_MODEL = "google/gemini-3.1-flash-lite"
+DEFAULT_MODEL = "opencode/big-pickle"
 DEFAULT_PORT = 4096
 DEFAULT_HOST = "127.0.0.1"
 
@@ -92,8 +92,8 @@ def run_prompt(
     workdir: Path | None = None,
     model: str = DEFAULT_MODEL,
     auto_approve: bool = True,
-    attach: bool = False,
-    timeout: float = 120.0,
+    attach: bool = True,
+    timeout: float = 300.0,
     server_port: int = DEFAULT_PORT,
 ) -> dict[str, Any]:
     """Execute a prompt via OpenCode headlessly and collect structured results."""
@@ -206,7 +206,7 @@ def main() -> int:
         "--timeout",
         "-t",
         type=float,
-        default=120.0,
+        default=300.0,
         help="Timeout in seconds",
     )
     run_parser.add_argument(
@@ -215,7 +215,9 @@ def main() -> int:
         help="Disable auto-approval of permissions",
     )
     run_parser.add_argument(
-        "--attach", action="store_true", help="Attach to running server daemon (default: False)"
+        "--no-attach",
+        action="store_true",
+        help="Do not attach to running server daemon",
     )
 
     # server command
@@ -235,7 +237,7 @@ def main() -> int:
             workdir=args.dir,
             model=args.model,
             auto_approve=not args.no_auto,
-            attach=args.attach,
+            attach=not args.no_attach,
             timeout=args.timeout,
         )
         if res["success"]:
