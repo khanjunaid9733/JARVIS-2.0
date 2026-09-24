@@ -1,9 +1,9 @@
 # JARVIS 2.0 — COMPREHENSIVE ROADMAP & REMAINING WORK
 
 > **Repository Root:** `F:\JARVIS2.0`  
-> **Active Branch:** `task/supervisor` @ `70d535f`  
-> **Last Verified:** September 21, 2026  
-> **Test Suite Status:** **785 passed in 42.31s**, 0 failed (100% GREEN)  
+> **Active Branch:** `task/supervisor`  
+> **Last Verified:** September 24, 2026  
+> **Test Suite Status:** **793 passed in 43.54s**, 0 failed (100% GREEN; 785 before the live loop)  
 > **Orchestrator State:** `F:\JARVIS_ORCHESTRATOR_STATE\`
 
 ---
@@ -81,7 +81,28 @@ The core architecture follows the foundational principle: **"The model proposes;
 - **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`) enforcing single-writer locks (`supervisor.lock`) and durable ledger updates (`ledger.json`).
 - **Milestones M3.1–M3.5, M2.5, M2.6 & M2.7 Accepted**: Recorded in `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json`, `M3.2.json`, `M3.3.json`, `M3.4.json`, `M3.5.json`, `M2.5.json`, `M2.6.json`, and `M2.7.json`.
 
-### D. Multimodal Cognition (`src/jarvis/multimodal/`)
+### D. Live Loop / Composition Root (`src/jarvis/live.py`, `jarvis mission` / `jarvis voice`) — NEW (uncommitted)
+
+Every milestone above M1 shipped as an importable, unit-tested fold with no caller: there were zero non-test constructors of `MissionRunner`, `Router`, `RecoveryEngine` and `SupervisorDaemon`, and zero importers of `jarvis.multimodal`. `src/jarvis/live.py` is that caller and nothing else — the smallest wiring that makes the system runnable:
+
+```bash
+cd F:\JARVIS2.0
+export JARVIS_HOME=$(mktemp -d)          # any clean home
+uv run --frozen jarvis init
+uv run --frozen jarvis mission "keep the kernel deterministic under load" --fault deliver=1
+uv run --frozen jarvis mission "keep the kernel deterministic under load" --worker external --worker-timeout 60
+uv run --frozen jarvis voice "when does the deploy gate run"        # speaks: real WAV written beside the log
+uv run --frozen jarvis voice "ignored" --audio question.wav          # real STT + real per-frame VAD
+uv run --frozen jarvis recall "deploy gate"
+```
+
+One goal runs `intake -> decompose -> dispatch -> verify -> recover -> recall`: a real `mission.started` event, a declared ordered plan, Router role resolution on canonical identities (I5 applied), per-step dispatch precondition validation with real dispatch traces, artifacts written atomically inside the workspace jail through the effect envelope, independent filesystem verification of the bytes, the supervisor recovery ladder + ACT plane (`--fault step=N` proves a RETRY really re-executes the worker with the failure bytes carried), a `SupervisorDaemon` tick over the real dispatch records and mission lease, NAT-05 completion (or refusal), and a memory write + recall. With `--worker external` the step is dispatched to a REAL external process through the L7 bridge (`WorkDatum` carries the real handle, PID, exit code and containment: `precondition` | `spawn-fault` | `timeout` | `self-attested` | `failed`), and the artifact is adjudicated by an `IndependentVerifier` in a fresh process attributed to a *different* provider - the worker's own return value is never read, so Invariant I5 is exercised instead of asserted. `jarvis voice` runs the real 6-state turn-taking FSM journaled on stream `voice-session`, transcribes real audio through whichever engine is bound, answers from memory, speaks the answer through a real synthesis engine (measured, non-silent WAV written beside the log), and reports every component as `real` or `seam` in one honest line.
+
+A voice turn also SPEAKS: the first real synthesis engine on this machine is bound (`JARVIS_TTS_CMD` contract unchanged, then `piper`, then the Windows OS engine `System.Speech`, then `espeak-ng`) and the payload is measured before it counts - a WAV is parsed for duration/rate/peak/RMS and a silent or non-WAV payload is reported as a FAILED synthesis with no file written. With `--audio <wav>` the input side stops being a flag: the file is sliced into real 30ms frames whose activity is the measured RMS energy of those samples, and the FSM's collected buffer holds those bytes.
+
+Named seams (reported in the command output, never as verified): no microphone device is opened (a typed turn declares `caller-declared` VAD and says nothing was captured; real audio in needs `--audio <file>`) and the turn writes its WAV beside the log without opening a speaker; the default worker is local (labelled `local (in-process, NOT a dispatch)`) and no external engine on this machine can produce an artifact - `opencode run` never returns non-interactively (200-240s, empty output, exit 124) and `agy -p` exits 0 while reporting every tool call blocked by a malformed global plugin hook path, so `--worker external` ends in containment timeout plus `task.completion_refused`; the recovery git rollback seam is not injected (ROLLBACK declared, never executed); vision stays library-only; mic capture/VAD are caller-declared. External worker containment is process-tree containment, not a filesystem sandbox: the jail governs what may be *accepted*, not what the engine may touch (`network_allowed` / `max_memory_mb` are declared, unenforced).
+
+### E. Multimodal Cognition (`src/jarvis/multimodal/`)
 - **Voice Interface (`voice.py`)**: `WhisperSTTAdapter` (`audio.transcribe` v1.0.0) + `PiperTTSAdapter` (`audio.synthesize` v1.0.0) implementing `ProviderAdapter` with pluggable runner seams.
 - **Vision Processing (`vision.py`)**: `VisionModelAdapter` (`vision.describe`, `vision.analyze` v1.0.0) implementing `ProviderAdapter`.
 - **Streaming Event Loop (`streaming.py`)**: `VoiceTurnState` 6-state machine (`IDLE`, `LISTENING`, `USER_SPEAKING`, `THINKING`, `ASSISTANT_SPEAKING`, `INTERRUPTED`) and `StreamingVoiceLoop` with real-time barge-in interruption handling and event log auditing.
@@ -209,7 +230,7 @@ git status
 # 3. Check orchestrator status and current milestone
 uv run python scripts/supervisor.py status
 
-# 4. Verify test suite health (must be 664 passing)
+# 4. Verify test suite health (must be green; 793 at the live-loop pass)
 uv run pytest -q
 
 # 5. Read context documents before making any changes

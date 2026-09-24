@@ -65,6 +65,25 @@ status:
     packages: "M2.1 memory API + episodic trace (DONE) | M2.2 emb/retrieval seams (DONE) | M2.3 consolidation (DONE) | M2.4 verification (DONE) | M2.5 PII seam (DONE) | M2.6 FS effect + sandbox (DONE) | M2.7 manifest compilation + DAG (DONE) | M2.8 key authority (DONE) | M2.9 budgets/rate limits (DONE) | M2.10 checkpoints (single memory digest) (DONE)"  # full list in docs/M2_KICKOFF.md; M2 COMPLETE
   m3_missions: "m3_5_completed"  # 2026-09-21; M3 Orchestrator (M3.1-M3.5) complete, verified & frozen; 664 passed
   m4_multimodal: "m4_completed"  # 2026-09-21; M4 multimodal cognition (Whisper STT, Piper TTS, vision adapters, streaming voice loop with barge-in) verified & accepted; 785 passed
+  live_loop: "implemented_uncommitted_pending_creator_review"  # 2026-09-24; composition root src/jarvis/live.py + `jarvis mission` / `jarvis voice`; 814 passed; the first non-test caller of MissionRunner/Router/RecoveryEngine/SupervisorDaemon and of jarvis.multimodal; `--worker external` dispatches through live_dispatch.py to a REAL external process with an independent fresh-process verifier; a voice turn SPEAKS through a real synthesis engine with the audio measured
+  live_loop_components:
+    real:  # exercised end-to-end through the real CLI on a clean JARVIS_HOME
+      - "memory kernel: CoreService EventLog (hash-chained, verify_chain OK after every run) + MemoryProjection + MemoryWriter/Memory recall"
+      - "effect envelope + path-jailed FilesystemEffectAdapter: atomic write, declared postconditions verified before an effect counts"
+      - "orchestrator: Router (L5, I5 on canonical identities), MissionRunner ratchet (M3.2), RecoveryEngine ladder+ACT (M3.4) with a RETRY that really re-executes the worker and carries the failure bytes, SupervisorDaemon (M3.5) ticked over real dispatch records + a real mission lease"
+      - "completion: CompletionGate (NAT-05) is the only writer of task.completed; a halted mission emits task.completion_refused"
+      - "voice: StreamingVoiceLoop 6-state FSM journaled on stream 'voice-session'; STT via the real whisper CLI (transcribed real speech on this machine)"
+      - "voice OUT: a real synthesis engine speaks - JARVIS_TTS_CMD (contract unchanged) | piper | the Windows OS engine System.Speech via powershell | espeak-ng; every payload is MEASURED before it counts (parsed WAV: duration, rate, peak, RMS) and a silent or non-WAV payload is reported as a FAILED synthesis with no file written"
+      - "voice IN over real audio: `--audio <wav>` feeds the FSM real 30ms frames whose activity is the MEASURED RMS energy of those samples (46 speech / 33 silence on a real spoken question here); the FSM's collected buffer holds those bytes"
+      - "worker/verifier seam (src/jarvis/live_dispatch.py): a step is dispatched to a REAL external process through the L7 bridge - real Handle/process_id/exit code and honest containment (precondition | spawn-fault | timeout | self-attested | failed) - and the artifact is adjudicated by an IndependentVerifier in a FRESH process attributed to a different provider; I5 is enforced fail-closed (a resolved verifier that holds RED_TEAM_REVIEWER for the package -> outcome HELD, zero steps, zero completion event) and the verifier's own exit code decides accept vs refusal"
+    seams:  # named in the command output, never reported as verified
+      - "no microphone device is opened: a typed turn declares `caller-declared` VAD and says nothing was captured; real audio in requires `--audio <file>`"
+      - "default worker is local: `--worker local` (the default) runs in-process and is labelled 'local (in-process, NOT a dispatch)' - never reported as a dispatch; `--worker auto` chooses the external engine only when its binary is on PATH"
+      - "external engine availability on THIS machine: no external agent engine can produce an artifact. `opencode run` never returns non-interactively (4 timed attempts, 200-240s, empty stdout/stderr, exit 124) and `agy -p --output-format json` exits 0 while reporting that every tool call is blocked by a malformed global plugin hook path. A real `jarvis mission --worker external` therefore ends in containment timeout + `task.completion_refused`, printed verbatim instead of being dressed up as a dispatch"
+      - "external worker containment is process-tree containment, NOT a filesystem sandbox: the workspace jail governs what may be ACCEPTED, not what the engine may touch; Sandbox.network_allowed / max_memory_mb are declared and unenforced"
+      - "recovery git rollback: GitSeam not injected - ROLLBACK is declared, never executed"
+      - "multimodal vision: VisionModelAdapter remains library-only (no image turn)"
+      - "audio playback: the turn writes the WAV beside the log and names the path; it does not open a speaker"
   m5_robotics: "not_started"
 
 authority:
@@ -120,10 +139,10 @@ m1_definition_of_done:
     - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)"
 
 current_task:
-  status: "m2_7_completed"
-  phase: "m2_memory_os"
-  objective: "m2_8_crypto_authority"
-  next_step: "kickoff M2.8 (key-based creator authority)"
+  status: "live_loop_implemented_pending_creator_review"
+  phase: "live_runtime"
+  objective: "make every verified milestone reachable from one runnable entry point, with a worker/verifier seam that is real rather than self-attested"
+  next_step: "creator review of src/jarvis/live.py + src/jarvis/live_dispatch.py + `jarvis mission [--worker local|auto|external]` / `jarvis voice [--audio <wav>]`; then an external engine that can actually produce an artifact on this host (opencode/agy are both blocked here) and a microphone capture device"
 
 m1_1_stretch:
   status: "modules_15_17_reconciled"  # module 14 + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit (46e0d98) findings F-M15-1/F-M16-1/F-M17-1/F-M17-2 all fixed + regression tests

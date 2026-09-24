@@ -9,11 +9,11 @@
 | Datum | Verified Reality | Status |
 |---|---|---|
 | **Directory** | `F:\JARVIS2.0` (NEVER use `C:\Users\khanj\jarvis_home`) | ACTIVE WORKSPACE |
-| **Branch** | `task/supervisor` @ `70d535f` | ACTIVE |
+| **Branch** | `task/supervisor` (HEAD `b28f554` + the uncommitted live loop) | ACTIVE |
 | **Main Baseline** | `main` @ `afa6beb` (M2.4 merged) | FROZEN |
 | **Baseline Commit** | `7607a6f1f226824b5a7038e15efd66932529da7c` | IMMUTABLE |
 | **Core Kernel** | `src/jarvis/kernel/**` byte-identical to `main` | UNTOUCHED (0 diffs) |
-| **Test Suite** | **785 passed in 42.31s**, 0 failed | 100% GREEN |
+| **Test Suite** | **793 passed in 43.54s**, 0 failed (785 before the live loop) | 100% GREEN |
 | **Active Plan** | Phase 4: M5 Embodiment / Physical Nodes | UPCOMING |
 | **State Directory** | `F:\JARVIS_ORCHESTRATOR_STATE\` | INITIALIZED & ACTIVE |
 | **Frozen Packages** | `["M3.1", "M3.2", "M3.3", "M3.4", "M3.5", "M2.5", "M2.6", "M2.7", "M2.8", "M2.9", "M2.10", "M4"]` (signed in `evidence/`) | ACCEPTED |
@@ -46,7 +46,19 @@ All suites passing (785 tests total):
 * **`scripts/journal.py`**: Append-only, hash-chained, fsync-durable JSONL journal (`journal.jsonl`).
 * **`scripts/supervisor.py`**: CLI orchestrator (`init`, `status`, `verify`) enforcing single-writer lock (`supervisor.lock`), durable ledger (`ledger.json`), and coordinates verify + journal emission.
 
-### D. Milestones M3.1–M3.5, M2.5–M2.10, M4 Verified & Frozen
+### D. The Live Loop (new, uncommitted) — `src/jarvis/live.py` + `jarvis mission` / `jarvis voice`
+
+The composition root that finally constructs the folds above (first non-test caller of `MissionRunner`, `Router`, `RecoveryEngine`, `SupervisorDaemon`, and of `jarvis.multimodal`). Run one goal end-to-end and one voice turn:
+
+```bash
+uv run --frozen jarvis mission "<goal>" [--fault STEP=N] [--worker local|auto|external] [--worker-timeout SECS]
+                                                          # intake -> decompose -> dispatch -> verify -> recover -> recall
+uv run --frozen jarvis voice "<utterance>" [--audio <wav>] # FSM journalled; STT + TTS real engines; the spoken WAV is measured
+```
+
+Every run prints one honest line per component (`real` vs `seam`). `--worker external` dispatches a step to a real external process through the L7 bridge (`src/jarvis/live_dispatch.py`) and has a *different* provider adjudicate the artifact in a fresh process; I5 is enforced fail-closed. Voice is real in both directions: STT binds `JARVIS_STT_CMD` / `faster-whisper` / the `whisper` CLI, TTS binds `JARVIS_TTS_CMD` / `piper` / the Windows OS engine `System.Speech` / `espeak-ng`, and a synthesis only counts after the WAV is parsed and measured non-silent. Current seams: no microphone device is opened (a typed turn declares `caller-declared` VAD) and no speaker is opened (the WAV is written and its path printed), the default worker being local (`local (in-process, NOT a dispatch)`), external engine availability on this host (`opencode run` never returns non-interactively; `agy` reaches the model but every tool call is blocked by a malformed global plugin hook, so `--worker external` honestly ends in containment timeout + `task.completion_refused`), external containment being process-tree containment rather than a filesystem sandbox, git rollback seam (ROLLBACK declared, never executed), vision (library-only), mic capture/VAD (caller-declared).
+
+### E. Milestones M3.1–M3.5, M2.5–M2.10, M4 Verified & Frozen
 * Evidence bundles:
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.1.json` (`sha256:82234d7554342760aaaea6d496e911de7980550bfc9e719f0b051316a4c0d057`)
   - `F:\JARVIS_ORCHESTRATOR_STATE\evidence\M3.2.json` (`sha256:c2349f8f3acaca67965a4943d35157f15faaec5c2dfa88d0fd033c537446fe63`)
@@ -88,5 +100,5 @@ All suites passing (785 tests total):
 
 * **Rule 1**: Do NOT touch `src/jarvis/kernel/`. All work is additive in `src/jarvis/supervisor/`, `src/jarvis/orchestrator/`, `scripts/`, or `tests/`.
 * **Rule 2**: Do NOT merge to `main` or push to `origin`. Those are creator-gated (L2).
-* **Rule 3**: Always run `uv run pytest -q` to verify zero regressions across the 664 existing tests.
+* **Rule 3**: Always run `uv run pytest -q` to verify zero regressions across the 814 existing tests. Use `uv run --frozen` so `uv.lock` cannot drift.
 * **Rule 4**: Commit BEFORE running `supervisor.py verify <pkg>` - evidence must be `verify_py_source: git_blob`, never `working_tree`.

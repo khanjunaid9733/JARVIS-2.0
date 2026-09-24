@@ -68,6 +68,51 @@ def _build_parser() -> argparse.ArgumentParser:
     recall.add_argument("query")
     recall.set_defaults(func=_cmd_recall)
 
+    mission = sub.add_parser(
+        "mission",
+        help="run one goal through the live loop: intake -> decompose -> dispatch -> "
+        "verify -> recover -> recall",
+    )
+    mission.add_argument("goal")
+    mission.add_argument(
+        "--fault",
+        action="append",
+        default=[],
+        metavar="STEP=N",
+        help="declare N transient failures for a step (proves the recovery ladder acts)",
+    )
+    mission.add_argument(
+        "--worker",
+        choices=("local", "auto", "external"),
+        default="local",
+        help="worker engine: local (in-process, default), auto (external then local), "
+        "external (require a real external process)",
+    )
+    mission.add_argument(
+        "--worker-provider",
+        default=None,
+        help="provider whose bridge runs the worker (default: the Router's implementer)",
+    )
+    mission.add_argument(
+        "--worker-timeout",
+        type=float,
+        default=120.0,
+        help="sandbox timeout for an external worker; the whole process tree is killed",
+    )
+    mission.set_defaults(func=_cmd_mission)
+
+    voice = sub.add_parser(
+        "voice",
+        help="answer one voice turn through the live loop (STT -> answer -> TTS, FSM journalled)",
+    )
+    voice.add_argument("utterance", help="the spoken text, or the utterance to transcribe")
+    voice.add_argument(
+        "--audio",
+        default=None,
+        help="audio file to transcribe for real (requires a bound STT engine)",
+    )
+    voice.set_defaults(func=_cmd_voice)
+
     # bare `jarvis` = restart/recovery summary (§127.1)
     parser.set_defaults(func=_cmd_status)
     return parser
@@ -270,6 +315,70 @@ def _cmd_replay(service: CoreService, args: argparse.Namespace) -> int:
     except EventIntegrityError as exc:
         print(f"verify: FAILED ({exc})")
         return 2
+    return 0
+
+
+def _parse_faults(specs: list[str]) -> dict[str, int]:
+    """`--fault deliver=1` -> {"deliver": 1}; a declared transient fault, not a mock."""
+    faults: dict[str, int] = {}
+    for spec in specs:
+        step, _, count = spec.partition("=")
+        if not step or not count.isdigit():
+            raise SystemExit(f"jarvis: --fault expects STEP=N, got {spec!r}")
+        faults[step.strip()] = int(count)
+    return faults
+
+
+def _live_runtime(service: CoreService):
+    from .live import LiveRuntime
+
+    return LiveRuntime(service)
+
+
+def _post_check(service: CoreService) -> None:
+    """Prove the durable store is still sound after the live run."""
+    from .kernel.memory_projection import MemoryProjection
+
+    projection = MemoryProjection.rebuild(service.log)  # type: ignore[arg-type]
+    chain = service.log.verify_chain()  # type: ignore[union-attr]
+    print(
+        f"post-check: hash chain {'OK' if chain else 'FAILED'}, "
+        f"{projection.event_count} events, projection {projection.digest()[:16]}"
+    )
+
+
+def _cmd_mission(service: CoreService, args: argparse.Namespace) -> int:
+    runtime = _live_runtime(service)
+    report = runtime.run_goal(
+        args.goal,
+        faults=_parse_faults(args.fault),
+        worker_mode=args.worker,
+        worker_provider=args.worker_provider,
+        worker_timeout=args.worker_timeout,
+    )
+    for line in report.lines:
+        print(line)
+    print(f"mission: {report.mission_id} outcome={report.outcome} lifecycle={report.lifecycle}")
+    print("components:")
+    for line in report.components:
+        print(f"  - {line}")
+    _post_check(service)
+    return 0
+
+
+def _cmd_voice(service: CoreService, args: argparse.Namespace) -> int:
+    runtime = _live_runtime(service)
+    report = runtime.voice_turn(
+        args.utterance,
+        audio=args.audio,
+        answerer=lambda text: _answer_question(service, text),
+    )
+    for line in report.lines:
+        print(line)
+    print("components:")
+    for line in report.components:
+        print(f"  - {line}")
+    _post_check(service)
     return 0
 
 

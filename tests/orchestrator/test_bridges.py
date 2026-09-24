@@ -9,6 +9,7 @@ handle, ``status`` polls, ``cancel`` terminates the process tree, and
 is spawned.
 """
 
+import os
 import sys
 import time
 from pathlib import Path
@@ -366,3 +367,54 @@ def test_default_runner_reports_a_spawn_fault_instead_of_raising(tmp_path: Path)
     assert rc == 1
     assert out == ""
     assert err != ""
+
+
+def _make_shim(directory: Path, name: str) -> Path:
+    """Install ``name`` on disk the way npm does: as a script, not an image."""
+    body = directory / f"{name}_body.py"
+    body.write_text(
+        'import pathlib\n'
+        'pathlib.Path(__file__).with_name("marker.txt").write_text("ran")\n',
+        encoding="utf-8",
+    )
+    if sys.platform == "win32":
+        shim = directory / f"{name}.cmd"
+        shim.write_text(f'@ECHO off\r\n"{sys.executable}" "{body}"\r\n', encoding="utf-8")
+    else:
+        shim = directory / name
+        shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{body}"\n', encoding="utf-8")
+        shim.chmod(0o755)
+    return shim
+
+
+def test_a_path_shim_is_launchable_through_the_dispatch_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A CLI installed only as a shim must SPAWN, not report a spawn fault.
+
+    Regression (measured on this host): the bridge built argv from the bare
+    name - ``["opencode", "run", prompt]`` - and Windows ``CreateProcess``
+    appends only ``.exe`` to a bare name, so ``opencode.CMD`` (the real, npm-
+    installed engine, with no ``opencode.exe`` beside it) raised
+    ``FileNotFoundError [WinError 2]``. The engine looked absent when it was
+    only unlaunchable, and a whole mission was refused as ``spawn-fault``.
+    """
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    _make_shim(tools, "jvshimprobe")
+    monkeypatch.setenv("PATH", str(tools) + os.pathsep + os.environ.get("PATH", ""))
+
+    rc, out, err = DefaultSubprocessRunner().run(["jvshimprobe"], cwd=tmp_path, timeout=30)
+
+    assert rc == 0, (out, err)
+    assert (tools / "marker.txt").read_text(encoding="utf-8") == "ran"
+
+
+def test_a_name_that_is_not_installed_still_reports_a_fault(tmp_path: Path) -> None:
+    """Resolution must not turn an absent engine into a crash or a silence."""
+    rc, out, err = DefaultSubprocessRunner().run(
+        ["jv-definitely-not-installed-xyz"], cwd=tmp_path, timeout=30
+    )
+    assert rc == 1
+    assert out == ""
+    assert "FileNotFoundError" in err

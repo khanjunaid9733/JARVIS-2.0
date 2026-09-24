@@ -41,6 +41,9 @@ venv.bak/
 *.sqlite-wal
 *.sqlite-shm
 ~/.jarvis/
+work_orders/
+dispatches.jsonl
+leases.jsonl
 
 # Testing & Coverage
 .pytest_cache/

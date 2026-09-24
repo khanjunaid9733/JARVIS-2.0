@@ -25,6 +25,7 @@ copies that lived in ``opencode.py`` / ``agy.py`` / ``deepseek.py`` are gone.
 """
 
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -155,6 +156,26 @@ class _WindowsJob:
             self.handle = None
 
 
+def _resolve_launch_command(cmd: Sequence[str]) -> list[str]:
+    """Resolve ``argv[0]`` the way a shell would, so a shim is launchable.
+
+    ``CreateProcess`` appends only ``.exe`` to a bare name, so an
+    npm-installed CLI that is on PATH as ``opencode`` (a POSIX sh shim) and
+    ``opencode.CMD`` - but with no ``opencode.exe`` - made every dispatch die
+    with ``FileNotFoundError [WinError 2]``. The engine looked absent when it
+    was only unlaunchable. ``shutil.which`` honours ``PATHEXT``, so the launch
+    now matches what the user's shell does. Measured on this host: the bare
+    name raised WinError 2; the resolved ``.CMD`` spawned a live process.
+    """
+    argv = list(cmd)
+    if not argv:
+        return argv
+    resolved = shutil.which(argv[0])
+    if resolved is not None:
+        argv[0] = resolved
+    return argv
+
+
 def _taskkill_tree(pid: int | None) -> None:
     """Last-resort descendant kill when no job boundary could be established."""
     if pid is None:
@@ -201,7 +222,7 @@ class ContainedProcess:
 
     def _popen(self, start_new_session: bool = False) -> subprocess.Popen[str]:
         return subprocess.Popen(
-            self.cmd,
+            _resolve_launch_command(self.cmd),
             cwd=str(self.cwd),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
