@@ -92,7 +92,7 @@ def run_prompt(
     workdir: Path | None = None,
     model: str = DEFAULT_MODEL,
     auto_approve: bool = True,
-    attach: bool = True,
+    attach: bool = False,
     timeout: float = 120.0,
     server_port: int = DEFAULT_PORT,
 ) -> dict[str, Any]:
@@ -132,8 +132,18 @@ def run_prompt(
         stdout, stderr = proc.communicate(timeout=timeout)
         rc = proc.returncode
     except subprocess.TimeoutExpired:
-        proc.kill()
-        stdout, stderr = proc.communicate()
+        if sys.platform == "win32":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                capture_output=True,
+                shell=False,
+            )
+        else:
+            proc.kill()
+        try:
+            stdout, stderr = proc.communicate(timeout=3.0)
+        except Exception:
+            pass
         return {
             "exit_code": 124,
             "success": False,
@@ -205,7 +215,7 @@ def main() -> int:
         help="Disable auto-approval of permissions",
     )
     run_parser.add_argument(
-        "--no-attach", action="store_true", help="Do not attach to server daemon"
+        "--attach", action="store_true", help="Attach to running server daemon (default: False)"
     )
 
     # server command
@@ -225,7 +235,7 @@ def main() -> int:
             workdir=args.dir,
             model=args.model,
             auto_approve=not args.no_auto,
-            attach=not args.no_attach,
+            attach=args.attach,
             timeout=args.timeout,
         )
         if res["success"]:

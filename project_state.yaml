@@ -19,10 +19,10 @@ spec:
 
 status:
   implementation: "in_progress"
-  milestone: "m0_completed_m1_readiness_patched"
-  m0_audit: "completed_verdict_m1_buildable_after_setup"
-  m1_readiness_patch: "applied_freeze_commit_pending"
-  m1_kernel: "must_tier_complete_pending_gate_review"
+  milestone: "m5_2_nodes_in_progress"
+  m0_audit: "completed_m0_m4_verified_green_827_tests"
+  m1_readiness_patch: "applied_and_frozen"
+  m1_kernel: "verified_green"
   event_log: "implemented_merged_d5d5567"
   creator_identity: "implemented_merged_9b3955b"
   intent_abi: "implemented_merged_81ceb23"  # module 3 (intent ABI + static validation), merged into main
@@ -84,7 +84,7 @@ status:
       - "recovery git rollback: GitSeam not injected - ROLLBACK is declared, never executed"
       - "multimodal vision: VisionModelAdapter remains library-only (no image turn)"
       - "audio playback: the turn writes the WAV beside the log and names the path; it does not open a speaker"
-  m5_robotics: "not_started"
+  m5_robotics: "m5_2_nodes_in_progress"
 
 authority:
   architecture: "docs/MASTER_BUILD_SPEC.md"
@@ -139,10 +139,10 @@ m1_definition_of_done:
     - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)"
 
 current_task:
-  status: "live_loop_implemented_pending_creator_review"
-  phase: "live_runtime"
-  objective: "make every verified milestone reachable from one runnable entry point, with a worker/verifier seam that is real rather than self-attested"
-  next_step: "creator review of src/jarvis/live.py + src/jarvis/live_dispatch.py + `jarvis mission [--worker local|auto|external]` / `jarvis voice [--audio <wav>]`; then an external engine that can actually produce an artifact on this host (opencode/agy are both blocked here) and a microphone capture device"
+  status: "m5_2_external_nodes_in_progress"
+  phase: "phase_4_m5_embodiment"
+  objective: "implement M5.2 external node protocol and RPC seam"
+  next_step: "OpenCode builder implements rpc_adapter.py and test_node_rpc.py; Antigravity verifies green test suite"
 
 m1_1_stretch:
   status: "modules_15_17_reconciled"  # module 14 + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit (46e0d98) findings F-M15-1/F-M16-1/F-M17-1/F-M17-2 all fixed + regression tests

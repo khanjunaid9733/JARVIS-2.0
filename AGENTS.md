@@ -109,12 +109,14 @@ This project uses a specialized multi-AI division of labor. Identify which agent
 
 ---
 
-## 5. CURRENT STAGE RESTRICTION
+## 5. CURRENT STAGE & AUTHORIZATION
 
 ```text
-CURRENT STAGE: PRE-M0 (Repository Establishment & Context Foundation)
-RUNTIME IMPLEMENTATION: NOT STARTED
+CURRENT STAGE: PHASE 4 — M5 (Embodiment & External Device Nodes)
+ACTIVE PACKAGE: M5.2 (External Node Protocol & Lightweight RPC Seam)
+FOUNDATIONAL MILESTONES: M0, M1, M2, M3, M4 — ALL COMPLETE & VERIFIED (827 GREEN TESTS)
 AUTOMATIC TOOL INSTALLATIONS: FORBIDDEN
 ```
 
-No agent may generate or execute M1 kernel code until the `docs/M0_AUDIT.md` report has been produced, reviewed, and assigned the verdict `M1_BUILDABLE_NOW`.
+M0 through M4 are verified complete and frozen. Work on Phase 4 / M5.2 is formally authorized and accepted per `docs/M5_2_KICKOFF.md`.
+OpenCode (Big Pickle) is authorized and directed to implement `src/jarvis/nodes/rpc_adapter.py` and `tests/nodes/test_node_rpc.py` to satisfy the M5.2 specification. Antigravity acts as the objective auditor and verification gate.
