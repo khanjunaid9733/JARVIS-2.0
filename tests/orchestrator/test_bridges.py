@@ -106,6 +106,25 @@ def test_opencode_bridge_submit_and_collect(tmp_path: Path) -> None:
     ]
 
 
+def test_opencode_bridge_auto_approve_and_model(tmp_path: Path) -> None:
+    runner = MockCommandRunner(exit_code=0, stdout="done")
+    bridge = OpenCodeBridge(
+        runner=runner,
+        provider_model="google/gemini-3.1-flash-lite",
+        auto_approve=True,
+    )
+    handle = bridge.submit("auto task", tmp_path, Sandbox(timeout_seconds=45.0))
+    bridge.collect(handle)
+
+    assert runner.recorded_commands == [
+        (
+            ["opencode", "run", "--auto", "-m", "google/gemini-3.1-flash-lite", "auto task"],
+            tmp_path,
+            45.0,
+        )
+    ]
+
+
 def test_opencode_bridge_failure(tmp_path: Path) -> None:
     runner = MockCommandRunner(exit_code=1, stderr="syntax error")
     bridge = OpenCodeBridge(runner=runner)
