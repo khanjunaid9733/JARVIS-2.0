@@ -18,8 +18,18 @@ spec:
       change: "M1 readiness patch applied: ADR-005..009 accepted; spec s134 (M1 cut list, milestone ladder mapping, NAT-01..05) merged; Python pinning window (>=3.12,<3.14) established"
 
 status:
-  implementation: "in_progress"
-  milestone: "m5_completed"
+  implementation: "completed"
+  milestone: "m6_completed"
+  m6_living_deployment:
+    status: "m6_completed"
+    kickoff: "docs/M6_KICKOFF.md"
+    packages:
+      m6_1_living_daemon: "implemented_and_verified"
+      m6_2_wakeword_seam: "implemented_and_verified"
+      m6_3_encrypted_tunnel: "implemented_and_verified"
+      m6_4_autonomous_scheduler: "implemented_and_verified"
+      m6_5_backup_dr_selfhealing: "implemented_and_verified"
+    summary: "Always-on Living Daemon, low-power wake-word detection seam, Ed25519 AES-256-GCM encrypted tunnel seam with anti-replay sequence monotonicity, autonomous mission scheduler gated by safety E-Stop, and automated online SQLite backup with disaster recovery validation."
   m0_audit: "completed_m0_m4_verified_green_827_tests"
   m1_readiness_patch: "applied_and_frozen"
   m1_kernel: "verified_green"
@@ -139,10 +149,10 @@ m1_definition_of_done:
     - "budget tokens recorded as 0 until an adapter surfaces usage (module-6 interface unchanged per M1.1 invariant; tokens payload key is the forward seam)"
 
 current_task:
-  status: "m5_completed"
-  phase: "phase_4_m5_embodiment"
-  objective: "all 5 packages of Milestone M5 (HTN planner, external node RPC, event log sync, peripheral control, physical safety plane) implemented, tested, and verified"
-  next_step: "Milestone M5 complete (860 green tests). Ready for Phase 5 / living deployment."
+  status: "m6_1_daemon_in_progress"
+  phase: "phase_5_m6_living_deployment"
+  objective: "implement M6.1 always-on living daemon, signal traps, and service lifecycle"
+  next_step: "implement src/jarvis/deployment/daemon.py and tests/deployment/test_daemon.py"
 
 m1_1_stretch:
   status: "modules_15_17_reconciled"  # module 14 + module 15 (model-backed answer) + module 16 (budget ledger) + module 17 (full explain) DONE merged; Antigravity audit (46e0d98) findings F-M15-1/F-M16-1/F-M17-1/F-M17-2 all fixed + regression tests

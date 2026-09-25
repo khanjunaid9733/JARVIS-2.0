@@ -112,11 +112,10 @@ This project uses a specialized multi-AI division of labor. Identify which agent
 ## 5. CURRENT STAGE & AUTHORIZATION
 
 ```text
-CURRENT STAGE: PHASE 4 — M5 (Embodiment & External Device Nodes) — COMPLETE & FROZEN
-COMPLETED PACKAGES: M5.1 (HTN Planner), M5.2 (External Node RPC), M5.3 (Log Sync), M5.4 (Peripherals), M5.5 (Safety Plane & E-Stop)
-FOUNDATIONAL MILESTONES: M0, M1, M2, M3, M4, M5 — ALL COMPLETE & VERIFIED (860 GREEN TESTS)
+CURRENT STAGE: PHASE 5 — M6 COMPLETE (Living Deployment & Always-On Persistence)
+FOUNDATIONAL & LIVING MILESTONES: M0, M1, M2, M3, M4, M5, M6 — ALL COMPLETE & VERIFIED (890 GREEN TESTS, 0 REGRESSIONS)
 AUTOMATIC TOOL INSTALLATIONS: FORBIDDEN
 ```
 
-All 5 packages of Milestone M5 (Embodiment & External Device Nodes) are verified complete, fully tested, and frozen (860 passing automated tests, 0 regressions).
-Physical embodiment, distributed node synchronization, peripheral hardware interfaces, and the fail-closed physical safety plane are verified per `docs/M5_KICKOFF.md` through `docs/M5_5_KICKOFF.md`.
+M0 through M6 are verified complete and frozen (890 passing automated tests, 0 regressions).
+Living deployment packages M6.1 through M6.5 establish always-on persistence, hands-free wake-word detection, encrypted node tunneling, background mission scheduling, and automated disaster recovery.
