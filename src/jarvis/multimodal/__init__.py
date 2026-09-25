@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Multimodal Cognition Package (Milestone M4, spec §92 / §93 / §131.7 / §131.13).
+"""Multimodal Cognition Package (Milestones M4 & M7.3, spec §92 / §93 / §131.7 / §24).
 
 Provides:
 - Voice Cognition:
@@ -8,18 +8,29 @@ Provides:
   - `PiperTTSAdapter`: Local / fast Piper Text-To-Speech (`audio.synthesize`).
 - Visual Perception:
   - `VisionModelAdapter`: Local / remote vision models (`vision.describe`, `vision.analyze`).
-- Real-Time Streaming:
+- Real-Time Streaming & Continuous Pairing:
   - `StreamingVoiceLoop`: Event-driven voice turn-taking loop with barge-in support.
   - `VoiceTurnState`: Operational states of the voice interaction loop.
+  - `ContinuousTutorSession`: Single-pipeline continuous voice-screen pairing session.
+  - `ContinuousTutorState`: Lifecycle states of the continuous pairing tutor.
+  - `TutorTurn`: Recorded multimodal interaction turn.
 """
 
+from .continuous_tutor import (
+    ContinuousTutorSession,
+    ContinuousTutorState,
+    TutorTurn,
+)
 from .streaming import StreamingVoiceLoop, VoiceTurnState
 from .vision import VisionModelAdapter
 from .voice import PiperTTSAdapter, WhisperSTTAdapter
 
 __all__ = [
+    "ContinuousTutorSession",
+    "ContinuousTutorState",
     "PiperTTSAdapter",
     "StreamingVoiceLoop",
+    "TutorTurn",
     "VisionModelAdapter",
     "VoiceTurnState",
     "WhisperSTTAdapter",

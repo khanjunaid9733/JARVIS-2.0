@@ -112,10 +112,16 @@ This project uses a specialized multi-AI division of labor. Identify which agent
 ## 5. CURRENT STAGE & AUTHORIZATION
 
 ```text
-CURRENT STAGE: PHASE 5 — M6 COMPLETE (Living Deployment & Always-On Persistence)
-FOUNDATIONAL & LIVING MILESTONES: M0, M1, M2, M3, M4, M5, M6 — ALL COMPLETE & VERIFIED (890 GREEN TESTS, 0 REGRESSIONS)
+CURRENT STAGE: PHASE 6 — M7 COMPLETE (Ambient Multimodal Computer-Use & Spatial Desktop Companion)
+FOUNDATIONAL & LIVING MILESTONES: M0, M1, M2, M3, M4, M5, M6, M7 — ALL COMPLETE & VERIFIED (914 GREEN TESTS, 0 REGRESSIONS)
 AUTOMATIC TOOL INSTALLATIONS: FORBIDDEN
 ```
 
-M0 through M6 are verified complete and frozen (890 passing automated tests, 0 regressions).
-Living deployment packages M6.1 through M6.5 establish always-on persistence, hands-free wake-word detection, encrypted node tunneling, background mission scheduling, and automated disaster recovery.
+Milestones M0 through M7 are verified complete and frozen (914 passing automated tests, 0 regressions).
+Phase 6 / Milestone M7 is formally verified per `docs/M7_KICKOFF.md`, synthesizing:
+1. Air-gapped local screen perception with dirty diffing and deterministic PII redaction (M7.1).
+2. Background headless window control without cursor hijacking (M7.2).
+3. Continuous real-time voice pairing tutor (M7.3).
+4. Spatial desktop HUD overlay with emergency stop (M7.4).
+5. Closed-loop autonomous computer-use engine (M7.5).
+

@@ -19,7 +19,17 @@ spec:
 
 status:
   implementation: "completed"
-  milestone: "m6_completed"
+  milestone: "m7_completed"
+  m7_computer_use:
+    status: "m7_completed"
+    kickoff: "docs/M7_KICKOFF.md"
+    packages:
+      m7_1_screen_perception: "implemented_and_verified"
+      m7_2_headless_computer_use: "implemented_and_verified"
+      m7_3_continuous_tutor: "implemented_and_verified"
+      m7_4_spatial_overlay: "implemented_and_verified"
+      m7_5_computer_use_engine: "implemented_and_verified"
+    summary: "Air-gapped local screen perception with dirty diffing and PII redaction, background headless window/UIA control, continuous real-time voice-screen pairing tutor, spatial desktop HUD overlay with emergency stop, and closed-loop computer-use engine."
   m6_living_deployment:
     status: "m6_completed"
     kickoff: "docs/M6_KICKOFF.md"
