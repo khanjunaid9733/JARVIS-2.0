@@ -355,6 +355,12 @@ class JarvisUIController {
         this.appendChatMessage('JARVIS 2.0', `[${data.status || 'STATUS'}] ${data.message}`);
       }
 
+      if (data.url && (data.action === 'media_playback' || data.action === 'web_search' || data.action === 'open_url')) {
+        try {
+          window.open(data.url, '_blank');
+        } catch (e) {}
+      }
+
       setTimeout(() => this.setCompanionStatus('idle'), 1500);
     } catch (err) {
       this.setCompanionStatus('idle');

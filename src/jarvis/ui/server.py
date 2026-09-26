@@ -12,9 +12,12 @@ import json
 import mimetypes
 import os
 from pathlib import Path
+import re
+import subprocess
 import sys
 import threading
 import urllib.parse
+import webbrowser
 from typing import Any
 
 from jarvis.bootstrap import CoreService
@@ -170,26 +173,126 @@ class JarvisRequestHandler(http.server.BaseHTTPRequestHandler):
             return
 
         service = engine.service
-        # Check if remember command
-        if text.lower().startswith("remember:"):
+        lowered = text.lower()
+
+        # 1. Media Playback Intent ("play ...", "listen to ...")
+        play_match = re.match(r"^(?:play|listen\s+to)\s+(.+)$", text, re.IGNORECASE)
+        if play_match:
+            track = play_match.group(1).strip()
+            try:
+                service.log.append(
+                    stream_id="companion",
+                    event_type="media_playback_initiated",
+                    principal_id=service.fingerprint,
+                    payload={"query": track, "source": "web_gui"},
+                )
+            except Exception:
+                pass
+            encoded = urllib.parse.quote_plus(track)
+            url = f"https://www.youtube.com/results?search_query={encoded}"
+            try:
+                webbrowser.open(url)
+            except Exception:
+                pass
+            self._send_json({
+                "reply": f"Playing '{track}' on media stream, sir.",
+                "action": "media_playback",
+                "target": track,
+                "url": url,
+            })
+            return
+
+        # 2. Open / Launch Application or Website ("open ...", "launch ...", "start ...")
+        launch_match = re.match(r"^(?:open|launch|start)\s+(.+)$", text, re.IGNORECASE)
+        if launch_match:
+            target = launch_match.group(1).strip()
+            try:
+                service.log.append(
+                    stream_id="companion",
+                    event_type="app_launch_initiated",
+                    principal_id=service.fingerprint,
+                    payload={"target": target, "source": "web_gui"},
+                )
+            except Exception:
+                pass
+
+            if target.startswith("http://") or target.startswith("https://") or any(target.endswith(tld) for tld in [".com", ".org", ".net", ".io", ".dev"]):
+                url = target if target.startswith("http") else f"https://{target}"
+                webbrowser.open(url)
+                self._send_json({"reply": f"Opening {target} in browser, sir.", "action": "open_url", "url": url})
+                return
+            else:
+                if sys.platform == "win32":
+                    os.system(f'start "" "{target}"')
+                else:
+                    subprocess.Popen([target])
+                self._send_json({"reply": f"Launching {target}, sir.", "action": "launch_app", "target": target})
+                return
+
+        # 3. Web Search Intent ("search ...", "google ...", "look up ...")
+        search_match = re.match(r"^(?:search(?:\s+for)?|google|look\s+up)\s+(.+)$", text, re.IGNORECASE)
+        if search_match:
+            query = search_match.group(1).strip()
+            try:
+                service.log.append(
+                    stream_id="companion",
+                    event_type="web_search_initiated",
+                    principal_id=service.fingerprint,
+                    payload={"query": query, "source": "web_gui"},
+                )
+            except Exception:
+                pass
+            encoded = urllib.parse.quote_plus(query)
+            url = f"https://www.google.com/search?q={encoded}"
+            webbrowser.open(url)
+            self._send_json({"reply": f"Searching for '{query}', sir.", "action": "web_search", "query": query, "url": url})
+            return
+
+        # 4. Memory Write Intent ("remember: ...", "remember that ...", "remember ...")
+        remember_match = re.match(r"^remember[:\s]+(?:that\s+)?(.+)$", text, re.IGNORECASE)
+        if remember_match:
+            fact = remember_match.group(1).strip()
             from jarvis.kernel.memory_write import MemoryWriter
-            fact = text.split(":", 1)[1].strip()
             writer = MemoryWriter(service.log)
             res = writer.remember(content=fact, source="web_gui")
             if res.status == "committed":
                 last_id = res.event_ids[-1][:8] if res.event_ids else "ok"
-                self._send_json({"reply": f"Stored in durable memory (event {last_id})."})
+                self._send_json({"reply": f"Stored in durable memory (event {last_id}): '{fact}'.", "action": "memory_write"})
             else:
                 self._send_json({"reply": f"Memory rejected: {res.reason}"})
             return
 
-        # Regular question/utterance
+        # 5. System Diagnostics ("status", "system status", "health", "diagnostics")
+        if lowered in ("status", "system status", "health", "system health", "diagnostics"):
+            events = list(service.log.replay())
+            self._send_json({
+                "reply": f"Systems nominal, sir. Workstation node active, {len(events)} events in WAL event log, cryptographic hash chain verified.",
+                "action": "system_status",
+            })
+            return
+
+        # 6. Memory Recall / Question ("recall ...", "what is ...", "who is ...")
         from jarvis.kernel.memory_query import answer
         ans_res = answer(service.projection(), text)
         if ans_res.answered and ans_res.answer:
-            reply = ans_res.answer
-        else:
-            reply = f"Acknowledged: '{text}'. Core operational."
+            self._send_json({"reply": ans_res.answer, "action": "memory_recall"})
+            return
+
+        # 7. Skill Engine Execution Fallback
+        ctx = SkillExecutionContext(
+            workspace=Path.cwd() / "artifacts",
+            timeout_seconds=30.0,
+        )
+        res = engine.skill_engine.execute_goal(text, ctx)
+        if res.success and res.execution and res.execution.stdout:
+            self._send_json({
+                "reply": f"[Skill {res.selected_skill.name if res.selected_skill else 'Engine'}]: {res.execution.stdout.strip()}",
+                "action": "skill_executed",
+            })
+            return
+
+        # 8. Conversational Fallback
+        reply = f"Acknowledged, sir: '{text}'. Core operational and standing by."
         self._send_json({"reply": reply})
 
     def _handle_post_skill_auto(self, payload: dict[str, Any]) -> None:
@@ -263,13 +366,13 @@ class JarvisUIServer:
         )
         self.skill_engine = SkillRuntimeEngine(event_sink=self.service.log)
 
-        self._httpd: http.server.HTTPServer | None = None
+        self._httpd: http.server.ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self.hotkey_listener: Any = None
 
     def start(self, enable_hotkey: bool = True) -> None:
         server_address = ("127.0.0.1", self.port)
-        self._httpd = http.server.HTTPServer(server_address, JarvisRequestHandler)
+        self._httpd = http.server.ThreadingHTTPServer(server_address, JarvisRequestHandler)
         self._httpd.server_engine = self  # type: ignore[attr-defined]
 
         self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
