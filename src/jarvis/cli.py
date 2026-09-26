@@ -113,6 +113,55 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     voice.set_defaults(func=_cmd_voice)
 
+    skill = sub.add_parser("skill", help="manage and execute skills from the skill library")
+    skill_sub = skill.add_subparsers(dest="skill_action")
+
+    skill_list = skill_sub.add_parser("list", help="list registered skills")
+    skill_list.add_argument("--domain", default=None, help="filter by domain")
+    skill_list.add_argument("--limit", type=int, default=50, help="maximum skills to display")
+    skill_list.set_defaults(func=_cmd_skill_list)
+
+    skill_find = skill_sub.add_parser("find", help="search skills by natural language intent")
+    skill_find.add_argument("query", help="natural language search query")
+    skill_find.add_argument("--domain", default=None, help="filter by domain")
+    skill_find.add_argument("--limit", type=int, default=10, help="max results")
+    skill_find.set_defaults(func=_cmd_skill_find)
+
+    skill_check = skill_sub.add_parser("check", help="check prerequisites and operational health")
+    skill_check.add_argument("skill_id", help="skill identifier")
+    skill_check.set_defaults(func=_cmd_skill_check)
+
+    skill_inspect = skill_sub.add_parser("inspect", help="inspect full skill manifest and steps")
+    skill_inspect.add_argument("skill_id", help="skill identifier")
+    skill_inspect.set_defaults(func=_cmd_skill_inspect)
+
+    skill_run = skill_sub.add_parser("run", help="execute or dry-run a skill")
+    skill_run.add_argument("skill_id", help="skill identifier")
+    skill_run.add_argument("--dry-run", action="store_true", help="dry-run without executing")
+    skill_run.add_argument("--param", action="append", default=[], help="parameter KEY=VALUE")
+    skill_run.set_defaults(func=_cmd_skill_run)
+
+    skill_auto = skill_sub.add_parser("auto", help="autonomously resolve and execute a goal")
+    skill_auto.add_argument("goal", help="goal intent or task description")
+    skill_auto.add_argument("--domain", default=None, help="constrain to a specific domain")
+    skill_auto.add_argument("--dry-run", action="store_true", help="dry-run without executing")
+    skill_auto.add_argument("--param", action="append", default=[], help="parameter KEY=VALUE")
+    skill_auto.set_defaults(func=_cmd_skill_auto)
+
+    skill.set_defaults(func=_cmd_skill_default, domain=None, limit=50)
+
+    ui = sub.add_parser("ui", help="launch JARVIS holographic arc core & web GUI")
+    ui.add_argument("--port", type=int, default=7777, help="port for the GUI server (default: 7777)")
+    ui.add_argument("--no-browser", action="store_true", help="do not auto-open browser")
+    ui.set_defaults(func=_cmd_ui)
+
+    res = sub.add_parser("resident", help="manage warm background resident daemon and global hotkeys")
+    res.add_argument("--port", type=int, default=7777, help="port for the resident server (default: 7777)")
+    res.add_argument("--install-startup", action="store_true", help="install silent background daemon into Windows Startup")
+    res.add_argument("--uninstall-startup", action="store_true", help="remove background daemon from Windows Startup")
+    res.add_argument("--status", action="store_true", help="check if registered in Windows Startup")
+    res.set_defaults(func=_cmd_resident)
+
     # bare `jarvis` = restart/recovery summary (§127.1)
     parser.set_defaults(func=_cmd_status)
     return parser
@@ -121,6 +170,62 @@ def _build_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 # commands
 # ---------------------------------------------------------------------------
+
+def _cmd_ui(service: CoreService, args: argparse.Namespace) -> int:
+    import webbrowser
+    from .ui.server import run_server
+
+    port = getattr(args, "port", 7777)
+    url = f"http://127.0.0.1:{port}"
+    print(f"Launching JARVIS Holographic Arc Core & GUI on {url}...")
+    if not getattr(args, "no_browser", False):
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+    run_server(port=port, service=service)
+    return 0
+
+
+def _cmd_resident(service: CoreService, args: argparse.Namespace) -> int:
+    from pathlib import Path
+    import sys
+    scripts_dir = Path(__file__).resolve().parent.parent.parent / "scripts"
+    sys.path.insert(0, str(scripts_dir))
+    try:
+        import install_startup
+    except ImportError:
+        install_startup = None  # type: ignore[assignment]
+
+    if getattr(args, "install_startup", False):
+        if not install_startup:
+            print("install_startup script not available", file=sys.stderr)
+            return 1
+        path = install_startup.install_startup(port=args.port)
+        print(f"JARVIS 2.0 Resident registered in Windows Startup at:\n  {path}")
+        print("System will pre-warm automatically on Windows login (warm memory, 0ms cold-start).")
+        return 0
+
+    if getattr(args, "uninstall_startup", False):
+        if not install_startup:
+            print("install_startup script not available", file=sys.stderr)
+            return 1
+        removed = install_startup.uninstall_startup()
+        print(f"Windows Startup resident registration removed: {removed}")
+        return 0
+
+    if getattr(args, "status", False):
+        installed = install_startup.is_installed() if install_startup else False
+        print(f"Windows Startup resident: {'INSTALLED' if installed else 'NOT INSTALLED'}")
+        return 0
+
+    from .ui.server import run_server
+    print("Starting JARVIS 2.0 Warm Resident Daemon...")
+    print("Global Hotkey: [Alt + J] active (instant HUD summon in <15ms)")
+    print(f"Server endpoint: http://127.0.0.1:{args.port}")
+    run_server(port=args.port, service=service)
+    return 0
+
 
 def _cmd_init(service: CoreService, args: argparse.Namespace) -> int:
     ensure_service_started(service.log)  # type: ignore[arg-type]
@@ -393,6 +498,179 @@ def _cmd_recall(service: CoreService, args: argparse.Namespace) -> int:
     for hit in hits:
         content = " ".join(hit.content.split())
         print(f"{hit.event_id}  {hit.score:.2f}  [{hit.source}]  {content}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# skill commands
+# ---------------------------------------------------------------------------
+
+def _cmd_skill_list(service: CoreService, args: argparse.Namespace) -> int:
+    from .skills import get_default_registry
+    reg = get_default_registry()
+    domain = getattr(args, "domain", None)
+    limit = getattr(args, "limit", 50)
+    if domain:
+        skills = reg.get_by_domain(domain)
+        print(f"Domain '{domain}': {len(skills)} skill(s)")
+    else:
+        skills = reg.list_all()
+        print(f"Loaded {reg.count()} skill(s) across {len(reg.list_domains())} domains:")
+
+    for s in skills[:limit]:
+        status_mark = "[runnable]" if s.is_runnable else "[info]"
+        print(f"  {s.id:<30} {status_mark:<10} {s.description[:60]}")
+    if len(skills) > limit:
+        print(f"  ... and {len(skills) - limit} more (use --limit to see more)")
+    return 0
+
+
+def _cmd_skill_find(service: CoreService, args: argparse.Namespace) -> int:
+    from .skills import get_default_registry
+    reg = get_default_registry()
+    matches = reg.find(args.query, domain=args.domain, limit=args.limit)
+    if not matches:
+        print(f"No skills matched query: {args.query!r}")
+        return 0
+    print(f"Top {len(matches)} match(es) for {args.query!r}:")
+    for m in matches:
+        print(f"  [{m.score:5.2f}] {m.skill.id:<28} ({m.skill.domain}) - {m.skill.description[:55]}")
+    return 0
+
+
+def _cmd_skill_check(service: CoreService, args: argparse.Namespace) -> int:
+    from .skills import SkillHealthChecker, get_default_registry
+    reg = get_default_registry()
+    skill = reg.get(args.skill_id)
+    if not skill:
+        print(f"Unknown skill: {args.skill_id!r}", file=sys.stderr)
+        return 1
+    chk = SkillHealthChecker()
+    report = chk.evaluate(skill)
+    print(f"Skill:      {skill.id} ({skill.domain})")
+    print(f"Status:     {report.status.value.upper()}")
+    print(f"Executable: {report.is_executable}")
+    if report.missing_binaries:
+        print(f"Missing binaries: {', '.join(report.missing_binaries)}")
+    if report.missing_env_vars:
+        print(f"Missing env vars: {', '.join(report.missing_env_vars)}")
+    if report.missing_modules:
+        print(f"Missing modules:  {', '.join(report.missing_modules)}")
+    for note in report.remediation_notes:
+        print(f"  * {note}")
+    return 0 if report.is_executable else 1
+
+
+def _cmd_skill_inspect(service: CoreService, args: argparse.Namespace) -> int:
+    from .skills import get_default_registry
+    reg = get_default_registry()
+    skill = reg.get(args.skill_id)
+    if not skill:
+        print(f"Unknown skill: {args.skill_id!r}", file=sys.stderr)
+        return 1
+    print(f"ID:          {skill.id}")
+    print(f"Title:       {skill.title}")
+    print(f"Domain:      {skill.domain}")
+    print(f"Description: {skill.description}")
+    if skill.triggers:
+        print(f"Triggers ({len(skill.triggers)}):")
+        for t in skill.triggers:
+            print(f"  - {t}")
+    if skill.prerequisites.required_binaries:
+        print(f"Required Binaries: {', '.join(skill.prerequisites.required_binaries)}")
+    if skill.prerequisites.required_env_vars:
+        print(f"Required Env:      {', '.join(skill.prerequisites.required_env_vars)}")
+    print(f"Workflows:   {len(skill.workflow_steps)} step(s)")
+    for step in skill.workflow_steps:
+        print(f"  Step {step.step_index} [{step.language}]:")
+        for line in step.code.splitlines()[:6]:
+            print(f"    {line}")
+        if len(step.code.splitlines()) > 6:
+            print("    ...")
+    return 0
+
+
+def _cmd_skill_run(service: CoreService, args: argparse.Namespace) -> int:
+    from pathlib import Path
+    from .skills import SkillDispatcher, SkillExecutionContext, get_default_registry
+    reg = get_default_registry()
+    skill = reg.get(args.skill_id)
+    if not skill:
+        print(f"Unknown skill: {args.skill_id!r}", file=sys.stderr)
+        return 1
+    params: dict[str, str] = {}
+    for p in args.param:
+        if "=" in p:
+            k, v = p.split("=", 1)
+            params[k.strip()] = v.strip()
+
+    workspace = getattr(service, "workspace", None) or Path.cwd()
+    ctx = SkillExecutionContext(
+        workspace=workspace,
+        parameters=params,
+        dry_run=args.dry_run,
+    )
+    dispatcher = SkillDispatcher(event_sink=service.log)
+    res = dispatcher.dispatch(skill, ctx)
+    if res.stdout:
+        print(res.stdout)
+    if res.stderr:
+        print(res.stderr, file=sys.stderr)
+    if res.refusal_reason:
+        print(f"REFUSED: {res.refusal_reason}", file=sys.stderr)
+        return 2
+    if not res.success:
+        print(f"FAILED: {res.error}", file=sys.stderr)
+        return res.exit_code or 1
+    print(f"OK ({res.duration_ms:.1f}ms)")
+    return 0
+
+
+def _cmd_skill_auto(service: CoreService, args: argparse.Namespace) -> int:
+    from pathlib import Path
+    from .skills import SkillExecutionContext, SkillRuntimeEngine, get_default_registry
+
+    reg = get_default_registry()
+    engine = SkillRuntimeEngine(registry=reg, event_sink=service.log)
+
+    params: dict[str, str] = {}
+    for p in args.param:
+        if "=" in p:
+            k, v = p.split("=", 1)
+            params[k.strip()] = v.strip()
+
+    workspace = getattr(service, "workspace", None) or Path.cwd()
+    ctx = SkillExecutionContext(
+        workspace=workspace,
+        parameters=params,
+        dry_run=args.dry_run,
+    )
+
+    res = engine.execute_goal(args.goal, ctx, domain=args.domain)
+    if res.selected_skill:
+        print(f"Matched Skill: {res.selected_skill.id} ({res.selected_skill.domain})")
+    if res.execution and res.execution.stdout:
+        print(res.execution.stdout)
+    if res.execution and res.execution.stderr:
+        print(res.execution.stderr, file=sys.stderr)
+
+    if res.status == "NO_MATCH":
+        print(f"NO_MATCH: {res.message}", file=sys.stderr)
+        return 1
+    elif res.status == "REFUSED":
+        print(f"REFUSED: {res.message}", file=sys.stderr)
+        return 2
+    elif res.status == "EXECUTION_FAILED":
+        print(f"FAILED: {res.message}", file=sys.stderr)
+        return res.execution.exit_code if res.execution else 1
+
+    print(f"OK ({res.duration_ms:.1f}ms)")
+    return 0
+
+
+def _cmd_skill_default(service: CoreService, args: argparse.Namespace) -> int:
+    if getattr(args, "skill_action", None) is None:
+        return _cmd_skill_list(service, args)
     return 0
 
 

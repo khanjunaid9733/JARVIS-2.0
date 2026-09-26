@@ -41,9 +41,12 @@ from typing import Any, Callable, Mapping, Sequence
 
 from .kernel.effect_envelope import EffectFailure, EffectEnvelope
 from .kernel.event_log import new_ulid
-from .orchestrator.bridges import ContainedProcess, Sandbox, validate_dispatch
-from .orchestrator.bridges.process import TIMEOUT_EXIT_CODE
-from .orchestrator.bridges.protocol import BridgeError, WorkerStatus
+# Import directly from sub-modules to avoid triggering orchestrator/__init__.py
+# which creates a circular import: bridges → orchestrator.__init__ → mission_runner
+# → jarvis.supervisor → orchestrator → (deadlock on Python's import lock).
+from .orchestrator.bridges.dispatch import validate_dispatch
+from .orchestrator.bridges.process import TIMEOUT_EXIT_CODE, ContainedProcess
+from .orchestrator.bridges.protocol import BridgeError, Sandbox, WorkerStatus
 from .orchestrator.router import canonical_provider
 from .supervisor import (
     Evidence,

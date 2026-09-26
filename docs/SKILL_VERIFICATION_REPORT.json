@@ -1,0 +1,208 @@
+{
+  "timestamp": "2026-09-26 11:16:16",
+  "total_skills_audited": 2406,
+  "total_library_skills": 2406,
+  "elapsed_seconds": 66.22,
+  "summary": {
+    "ready_to_execute": 2007,
+    "needs_api_credentials": 123,
+    "needs_external_binary": 57,
+    "needs_dependency": 219,
+    "dry_run_tested": 50,
+    "dry_run_successes": 50,
+    "dry_run_failures": 0
+  },
+  "top_domains": [
+    [
+      "general",
+      151
+    ],
+    [
+      "web",
+      28
+    ],
+    [
+      "security",
+      27
+    ],
+    [
+      "ai",
+      25
+    ],
+    [
+      "cloud",
+      25
+    ],
+    [
+      "marketing",
+      24
+    ],
+    [
+      "writing",
+      24
+    ],
+    [
+      "browser",
+      23
+    ],
+    [
+      "desktop",
+      21
+    ],
+    [
+      "files",
+      21
+    ],
+    [
+      "social",
+      21
+    ],
+    [
+      "assistant",
+      20
+    ],
+    [
+      "blockchain",
+      20
+    ],
+    [
+      "codegen",
+      20
+    ],
+    [
+      "comm",
+      20
+    ],
+    [
+      "db",
+      20
+    ],
+    [
+      "dev",
+      20
+    ],
+    [
+      "ds",
+      20
+    ],
+    [
+      "edu",
+      20
+    ],
+    [
+      "finance",
+      20
+    ]
+  ],
+  "top_required_env_vars": [
+    [
+      "DATABASE_URL",
+      18
+    ],
+    [
+      "ANTHROPIC_API_KEY",
+      9
+    ],
+    [
+      "PROJECT_ID",
+      9
+    ],
+    [
+      "CURVIATE_API_KEY",
+      9
+    ],
+    [
+      "YOUR_API_KEY",
+      6
+    ],
+    [
+      "CURVIATE_BASE_URL",
+      6
+    ],
+    [
+      "BRIGHTDATA_API_KEY",
+      5
+    ],
+    [
+      "OPENROUTER_API_KEY",
+      5
+    ],
+    [
+      "USER_ID",
+      5
+    ],
+    [
+      "YOUR_TOKEN",
+      3
+    ],
+    [
+      "AWS_ACCESS_KEY_ID",
+      3
+    ],
+    [
+      "AWS_SECRET_ACCESS_KEY",
+      3
+    ],
+    [
+      "GOOGLE_API_KEY",
+      3
+    ],
+    [
+      "SERVICE_ID",
+      3
+    ],
+    [
+      "API_BASE_URL",
+      2
+    ]
+  ],
+  "top_required_binaries": [
+    [
+      "zip",
+      37
+    ],
+    [
+      "mysql",
+      8
+    ],
+    [
+      "psql",
+      7
+    ],
+    [
+      "terraform",
+      6
+    ],
+    [
+      "unzip",
+      3
+    ]
+  ],
+  "sample_dry_runs": [
+    {
+      "id": "21risk-automation",
+      "domain": "21risk",
+      "dry_run_msg": "[DRY-RUN] Would execute 4 step(s) for '21risk-automation':\n  Step 1 [bash]: RUBE_SEARCH_TOOLS\nqueries: [{use_case: \"21risk operations\", known_fields: \"\"}]\nsession: {generate_id: true}\n  Step 2 [bash]: RUBE_SEARCH_TOOLS\nqueries: [{use_case: \"your specific 21risk task\"}]\nsession: {id: \"existing_session_id\"}\n  Step 3 [bash]: RUBE_MANAGE_CONNECTIONS\ntoolkits: [\"_21risk\"]\nsession_id: \"your_session_id\"\n  Step 4 [bash]: RUBE_MULTI_EXECUTE_TOOL\ntools: [{\n  tool_slug: \"TOOL_SLUG_FROM_SEARCH\",\n  arguments: {/* schema-compliant args from sear"
+    },
+    {
+      "id": "2chat-automation",
+      "domain": "2chat",
+      "dry_run_msg": "[DRY-RUN] Would execute 4 step(s) for '2chat-automation':\n  Step 1 [bash]: RUBE_SEARCH_TOOLS\nqueries: [{use_case: \"2chat operations\", known_fields: \"\"}]\nsession: {generate_id: true}\n  Step 2 [bash]: RUBE_SEARCH_TOOLS\nqueries: [{use_case: \"your specific 2chat task\"}]\nsession: {id: \"existing_session_id\"}\n  Step 3 [bash]: RUBE_MANAGE_CONNECTIONS\ntoolkits: [\"_2chat\"]\nsession_id: \"your_session_id\"\n  Step 4 [bash]: RUBE_MULTI_EXECUTE_TOOL\ntools: [{\n  tool_slug: \"TOOL_SLUG_FROM_SEARCH\",\n  arguments: {/* schema-compliant args from sear"
+    },
+    {
+      "id": "2d-games",
+      "domain": "2d",
+      "dry_run_msg": "[DRY-RUN] Skill '2d-games' is informational or declaratively complete."
+    },
+    {
+      "id": "3d-games",
+      "domain": "3d",
+      "dry_run_msg": "[DRY-RUN] Would execute 1 step(s) for '3d-games':\n  Step 1 [bash]: 1. Vertex Processing \u2192 Transform geometry\n2. Rasterization \u2192 Convert to pixels\n3. Fragment Processing \u2192 Color pixels\n4. "
+    },
+    {
+      "id": "3d-web-experience",
+      "domain": "3d",
+      "dry_run_msg": "[DRY-RUN] Would execute 7 step(s) for '3d-web-experience':\n  Step 1 [python]: ## 3D Stack Selection\n\n### Options Comparison\n| Tool | Best For | Learning Curve | Control |\n|------|----------|--------\n  Step 2 [bash]: ### Spline (Fastest Start)\n  Step 3 [bash]: ### React Three Fiber\n  Step 4 [bash]: ```\n\n### 3D Model Pipeline\n\nGetting models web-ready\n\n**When to use**: When preparing 3D assets\n  Step 5 [bash]: 1. Model in Blender/etc\n2. Reduce poly count (< 100K for web)\n3. Bake textures (combine materials)\n4. Export as GLB\n5. C\n  Step 6 [bash]: # Install gltf-transform\nnpm install -g @gltf-transform/cli\n\n# Compress model\ngltf-transform optimize input.glb output.g\n  Step 8 [bash]: ### Scroll-Driven 3D\n\n3D that responds to scroll\n\n**When to use**: When integrating 3D with scroll"
+    }
+  ]
+}

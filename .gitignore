@@ -58,6 +58,9 @@ htmlcov/
 *.swp
 *.swo
 
+# Generated skill index cache (rebuilt on demand; never commit)
+.agents/skills/.skills_cache.json
+
 # OS specific
 Thumbs.db
 Desktop.ini

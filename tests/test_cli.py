@@ -211,3 +211,65 @@ def test_cli_recall_with_no_matches_reports_none(home, capsys):
     code, out = _run(capsys, "recall", "quantum entanglement")
     assert code == 0
     assert "no relevant memory" in out
+
+
+def test_cli_skill_commands(home, capsys):
+    # skill list
+    code, out = _run(capsys, "skill", "list", "--limit", "5")
+    assert code == 0
+    assert "Loaded" in out
+    assert "skill(s) across" in out
+
+    # skill find
+    code, out = _run(capsys, "skill", "find", "convert audio")
+    assert code == 0
+    assert "media-audio-convert" in out
+
+    # skill check
+    code, out = _run(capsys, "skill", "check", "media-audio-convert")
+    assert code == 0
+    assert "Skill:      media-audio-convert" in out
+    assert "Status:" in out
+
+    # skill inspect
+    code, out = _run(capsys, "skill", "inspect", "media-audio-convert")
+    assert code == 0
+    assert "ID:          media-audio-convert" in out
+    assert "Title:       Audio Converter Skill" in out
+    assert "Workflows:   1 step(s)" in out
+
+    # skill run dry-run
+    code, out = _run(capsys, "skill", "run", "media-audio-convert", "--dry-run")
+    assert code == 0
+    assert "[DRY-RUN]" in out
+    assert "ffmpeg" in out
+
+    # skill auto dry-run
+    code, out = _run(capsys, "skill", "auto", "docker container", "--dry-run")
+    assert code == 0
+    assert "Matched Skill: dev-docker-run" in out
+    assert "[DRY-RUN]" in out
+
+
+def test_cli_ui_help(home, capsys):
+    with pytest.raises(SystemExit) as exc:
+        _run(capsys, "ui", "--help")
+    assert exc.value.code == 0
+    captured = capsys.readouterr().out
+    assert "usage: jarvis ui" in captured
+    assert "--port" in captured
+    assert "--no-browser" in captured
+
+
+def test_cli_resident_help(home, capsys):
+    with pytest.raises(SystemExit) as exc:
+        _run(capsys, "resident", "--help")
+    assert exc.value.code == 0
+    captured = capsys.readouterr().out
+    assert "usage: jarvis resident" in captured
+    assert "--install-startup" in captured
+    assert "--uninstall-startup" in captured
+    assert "--status" in captured
+
+
+

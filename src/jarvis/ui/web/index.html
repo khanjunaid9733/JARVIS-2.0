@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS 2.0 — Spatial Cognitive Interface</title>
+  <meta name="description" content="Persistent Cognitive Operating System and Spatial Desktop Companion HUD">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+</head>
+<body class="theme-obsidian">
+  <div class="cyber-grid-bg"></div>
+  <div class="scanline"></div>
+
+  <!-- Top Navigation Telemetry Bar -->
+  <header class="hud-top-bar">
+    <div class="brand-section">
+      <div class="status-orb" id="system-orb"></div>
+      <div class="brand-text">
+        <span class="brand-title">J.A.R.V.I.S. <span class="version-tag">2.0</span></span>
+        <span class="brand-subtitle">PERSISTENT COGNITIVE OPERATING SYSTEM</span>
+      </div>
+    </div>
+
+    <div class="telemetry-badges">
+      <div class="badge-item">
+        <span class="badge-label">NODE</span>
+        <span class="badge-value" id="node-id">WORKSTATION_PRIMARY</span>
+      </div>
+      <div class="badge-item">
+        <span class="badge-label">UPTIME</span>
+        <span class="badge-value font-mono" id="uptime-ticker">00:00:00</span>
+      </div>
+      <div class="badge-item">
+        <span class="badge-label">EVENT LOG</span>
+        <span class="badge-value font-mono text-cyan" id="event-depth">0 EVENTS</span>
+      </div>
+      <div class="badge-item">
+        <span class="badge-label">PROVIDERS</span>
+        <span class="badge-value font-mono text-green" id="provider-count">4 READY</span>
+      </div>
+    </div>
+
+    <div class="safety-controls">
+      <button id="btn-wakeword" class="hud-btn wakeword-btn" title="Toggle Acoustic Wake-Word ('Hey JARVIS')">
+        <span class="btn-icon">🎙️</span>
+        <span class="btn-text" id="wakeword-label">VOICE WAKE: OFF</span>
+      </button>
+      <button id="btn-shutter" class="hud-btn shutter-btn" title="Toggle Screen Privacy Shutter">
+        <span class="btn-icon">👁️</span>
+        <span class="btn-text" id="shutter-label">SHUTTER: OPEN</span>
+      </button>
+      <button id="btn-estop" class="hud-btn estop-btn" title="Emergency Stop Latch">
+        <span class="estop-icon">🛑</span>
+        <span>E-STOP</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Three-Panel Interface -->
+  <main class="hud-layout">
+    
+    <!-- LEFT PANEL: System Telemetry & Mission State -->
+    <aside class="panel left-panel glass-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">SYSTEM TELEMETRY</h2>
+        <span class="live-dot"></span>
+      </div>
+
+      <div class="telemetry-card">
+        <div class="card-row">
+          <span class="card-label">CORE STATE</span>
+          <span class="card-value status-pill status-idle" id="companion-status-pill">IDLE</span>
+        </div>
+        <div class="card-row">
+          <span class="card-label">CREATOR KEY</span>
+          <span class="card-value font-mono" id="creator-fp">25cb6b0d</span>
+        </div>
+        <div class="card-row">
+          <span class="card-label">SAFETY LATCH</span>
+          <span class="card-value text-green font-bold" id="estop-status">ENGAGED (SAFE)</span>
+        </div>
+        <div class="card-row">
+          <span class="card-label">VISION SHUTTER</span>
+          <span class="card-value text-cyan" id="shutter-state">ACTIVE</span>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h3 class="section-title">ACTIVE PROVIDER ADAPTERS</h3>
+        <div class="provider-list" id="provider-list">
+          <div class="provider-chip"><span class="chip-dot dot-green"></span> local (kernel)</div>
+          <div class="provider-chip"><span class="chip-dot dot-cyan"></span> groq (llama-3)</div>
+          <div class="provider-chip"><span class="chip-dot dot-amber"></span> opencode (gemini)</div>
+          <div class="provider-chip"><span class="chip-dot dot-purple"></span> n8n (workflow)</div>
+        </div>
+      </div>
+
+      <div class="panel-section flex-grow">
+        <h3 class="section-title">QUICK CAPABILITIES</h3>
+        <div class="quick-skills-grid">
+          <button class="skill-tile" data-goal="sysdiag-report">
+            <span class="tile-icon">📊</span>
+            <span class="tile-title">Diagnostics</span>
+          </button>
+          <button class="skill-tile" data-goal="desktop-screenshot">
+            <span class="tile-icon">📸</span>
+            <span class="tile-title">Capture Screen</span>
+          </button>
+          <button class="skill-tile" data-goal="security-audit">
+            <span class="tile-icon">🛡️</span>
+            <span class="tile-title">Security Audit</span>
+          </button>
+          <button class="skill-tile" data-goal="files-search">
+            <span class="tile-icon">📁</span>
+            <span class="tile-title">Search Files</span>
+          </button>
+          <button class="skill-tile" data-goal="web-search">
+            <span class="tile-icon">🌐</span>
+            <span class="tile-title">Web Query</span>
+          </button>
+          <button class="skill-tile" data-goal="media-text-to-speech">
+            <span class="tile-icon">🔊</span>
+            <span class="tile-title">Voice Synth</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER PANEL: The Holographic Face of JARVIS -->
+    <section class="panel center-panel">
+      <!-- Arc Reactor / Holographic Core Canvas -->
+      <div class="canvas-wrapper">
+        <canvas id="jarvis-core-canvas" width="600" height="480"></canvas>
+        <div class="core-overlay-text">
+          <div class="core-status-title" id="core-state-title">SYSTEM ONLINE</div>
+          <div class="core-status-subtitle" id="core-state-sub">AWAITING CREATOR INSTRUCTIONS</div>
+        </div>
+      </div>
+
+      <!-- Mode Selector Pills -->
+      <div class="status-selector-bar">
+        <button class="mode-btn active" data-status="idle">IDLE</button>
+        <button class="mode-btn" data-status="listening">LISTENING</button>
+        <button class="mode-btn" data-status="thinking">THINKING</button>
+        <button class="mode-btn" data-status="acting">ACTING</button>
+      </div>
+
+      <!-- Conversation & Intent Console -->
+      <div class="console-box glass-panel">
+        <div class="chat-history" id="chat-history">
+          <div class="chat-msg jarvis-msg">
+            <div class="msg-avatar">J</div>
+            <div class="msg-body">
+              <div class="msg-header">JARVIS 2.0 <span class="msg-time">ONLINE</span></div>
+              <div class="msg-text">Good afternoon. All core systems bootstrapped, projections verified, and 300+ skills loaded. How may I assist you today, sir?</div>
+            </div>
+          </div>
+        </div>
+
+        <form class="chat-input-bar" id="chat-form">
+          <button type="button" class="voice-mic-btn" id="btn-mic" title="Voice Input">
+            <span class="mic-icon">🎙️</span>
+          </button>
+          <input 
+            type="text" 
+            id="chat-input" 
+            class="chat-input-field" 
+            placeholder="Talk to JARVIS, run a skill (e.g., 'run system diagnostics'), or 'remember: ...'" 
+            autocomplete="off"
+          />
+          <button type="submit" class="chat-send-btn" id="btn-send">
+            <span>DISPATCH</span>
+            <span class="send-arrow">➔</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: Real-Time Event Stream Waterfall -->
+    <aside class="panel right-panel glass-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">KERNEL EVENT STREAM</h2>
+        <span class="badge-counter font-mono" id="stream-count">0</span>
+      </div>
+
+      <div class="event-stream-container" id="event-stream">
+        <div class="stream-empty-hint">Streaming events from C:\Users\khanj\.jarvis\log.db...</div>
+      </div>
+
+      <div class="event-stream-footer">
+        <button class="hud-link-btn" id="btn-replay-verify">VERIFY HASH CHAIN</button>
+        <button class="hud-link-btn" id="btn-clear-stream">CLEAR VIEW</button>
+      </div>
+    </aside>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
