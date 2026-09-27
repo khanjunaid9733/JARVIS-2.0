@@ -38,13 +38,32 @@ class SkillPrerequisites(BaseModel):
     requires_network: bool = False
 
 
+#: Languages whose steps the runtime knows how to execute. A step in any other
+#: language is parsed and kept for inspection but is never dispatched.
+#: ADR-011 S1: admission is decided by an explicit tag, never by guessing.
+EXECUTABLE_LANGUAGES: frozenset[str] = frozenset(
+    {"bash", "powershell", "python", "http"}
+)
+
+#: Default for an UNTAGGED fence. An unlabelled block in a skill document is
+#: overwhelmingly prose or an example (the library is mostly documentation
+#: prose), so it is inert. Defaulting untagged fences to `bash` is what let
+#: `3d-games` run its own Markdown description as a shell script (exit 127).
+UNTAGGED_FENCE_LANGUAGE = "text"
+
+
 class SkillWorkflowStep(BaseModel):
     """A discrete workflow step or executable snippet."""
 
     step_index: int
     title: str = ""
-    language: str = "bash"  # bash, powershell, python, http, text
+    language: str = UNTAGGED_FENCE_LANGUAGE  # bash, powershell, python, http, text
     code: str = ""
+
+    @property
+    def is_executable(self) -> bool:
+        """True only when the language is admitted AND there is code to run."""
+        return self.language in EXECUTABLE_LANGUAGES and bool(self.code.strip())
 
 
 class SkillManifest(BaseModel):
@@ -66,11 +85,16 @@ class SkillManifest(BaseModel):
 
     @property
     def is_runnable(self) -> bool:
-        """True if the skill contains executable workflow steps."""
-        return any(
-            s.language in ("bash", "powershell", "python", "http") and bool(s.code.strip())
-            for s in self.workflow_steps
-        )
+        """True if the skill contains at least one admitted executable step."""
+        return any(s.is_executable for s in self.workflow_steps)
+
+    @classmethod
+    def load(cls, path: Path | str) -> SkillManifest:
+        """Load and parse a single SKILL.md file or directory containing SKILL.md."""
+        p = Path(path)
+        if p.is_dir():
+            p = p / "SKILL.md"
+        return load_skill_file(p)
 
 
 def _extract_frontmatter(content: str) -> tuple[dict[str, str], str]:
@@ -128,7 +152,7 @@ def _extract_code_blocks(body: str) -> list[SkillWorkflowStep]:
     pattern = r"```([a-zA-Z0-9_\-]+)?\r?\n(.*?)\r?\n```"
     matches = re.finditer(pattern, body, re.DOTALL)
     for idx, match in enumerate(matches, 1):
-        lang = (match.group(1) or "bash").lower()
+        lang = (match.group(1) or UNTAGGED_FENCE_LANGUAGE).lower()
         code = match.group(2).strip()
         steps.append(
             SkillWorkflowStep(
@@ -249,11 +273,68 @@ def load_skill_file(path: Path | str) -> SkillManifest:
     return parse_skill_markdown(content, source_path=p)
 
 
+#: Reserved key inside the on-disk cache carrying the source fingerprint.
+#: Without it the cache was served blindly, so editing a SKILL.md (or adding or
+#: removing one) had NO effect on the registry until the file was deleted by
+#: hand - a mission would then execute a stale skill definition silently.
+CACHE_META_KEY = "__cache_meta__"
+#: 2 = ADR-011 S1. The fingerprint only tracks SKILL.md files, so a change to
+#: PARSING RULES is invisible to it: v1 caches still held untagged fences typed
+#: as `bash` and kept being served, which is why `3d-games` still ran its prose
+#: through a shell after the parser was fixed. Bump this whenever parse output
+#: can change without any source file changing.
+CACHE_VERSION = 2
+
+
+def _iter_skill_files(dir_path: str | Path):
+    """Walk `dir_path` with `os.scandir` yielding `DirEntry`s for every SKILL.md.
+
+    Uses string-based path traversal to avoid creating thousands of intermediate
+    Path objects during directory fingerprinting.
+    """
+    try:
+        with os.scandir(dir_path) as it:
+            for entry in it:
+                try:
+                    if entry.is_dir(follow_symlinks=False):
+                        yield from _iter_skill_files(entry.path)
+                    elif entry.name == "SKILL.md" and entry.is_file(follow_symlinks=False):
+                        yield entry
+                except OSError:
+                    continue
+    except OSError:
+        return
+
+
+def _source_fingerprint(root: Path) -> dict[str, Any]:
+    """Map every SKILL.md under `root` to (relative path, mtime, size).
+
+    This is what makes the cache safe to serve: an edit, an addition or a
+    removal changes the fingerprint, so the next load re-parses instead of
+    returning stale manifests.
+    """
+    files: dict[str, list[Any]] = {}
+    r_str = str(Path(root).resolve())
+    r_len = len(r_str) + 1
+    for entry in _iter_skill_files(r_str):
+        try:
+            stat = entry.stat(follow_symlinks=False)
+            relative = entry.path[r_len:].replace("\\", "/")
+        except (OSError, ValueError):
+            continue
+        files[relative] = [round(stat.st_mtime, 6), stat.st_size]
+    return {"version": CACHE_VERSION, "files": files}
+
+
 def load_skills_directory(
     directory: Path | str,
     use_cache: bool = True,
 ) -> dict[str, SkillManifest]:
-    """Recursively search for and load all SKILL.md files in a directory with optional caching."""
+    """Recursively search for and load all SKILL.md files in a directory with optional caching.
+
+    The cache is served only when its recorded source fingerprint still matches
+    the files on disk; otherwise every file is re-parsed and the cache rewritten.
+    """
     root = Path(directory)
     if not root.is_dir():
         return {}
@@ -263,9 +344,16 @@ def load_skills_directory(
         try:
             with open(cache_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            if isinstance(data, dict) and data:
+            if (
+                isinstance(data, dict)
+                and data
+                and isinstance(data.get(CACHE_META_KEY), dict)
+                and data[CACHE_META_KEY] == _source_fingerprint(root)
+            ):
                 res: dict[str, SkillManifest] = {}
                 for k, v in data.items():
+                    if k == CACHE_META_KEY or not isinstance(v, dict):
+                        continue
                     prereqs = (
                         SkillPrerequisites.model_construct(**v.get("prerequisites", {}))
                         if isinstance(v.get("prerequisites"), dict)
@@ -308,17 +396,28 @@ def load_skills_directory(
             continue
 
     if use_cache and skills:
-        _write_cache_atomically(cache_file, skills)
+        _write_cache_atomically(
+            cache_file, skills, fingerprint=_source_fingerprint(root)
+        )
 
     return skills
 
 
-def _write_cache_atomically(cache_file: Path, skills: Mapping[str, SkillManifest]) -> None:
+def _write_cache_atomically(
+    cache_file: Path,
+    skills: Mapping[str, SkillManifest],
+    fingerprint: Mapping[str, Any] | None = None,
+) -> None:
     """Write the skill cache atomically so an interrupted write cannot leave a
     truncated file behind (a zero-byte cache is otherwise indistinguishable
     from a valid one on the next read)."""
     try:
-        payload = json.dumps({k: v.model_dump() for k, v in skills.items()})
+        payload = json.dumps(
+            {
+                CACHE_META_KEY: dict(fingerprint) if fingerprint else None,
+                **{k: v.model_dump() for k, v in skills.items()},
+            }
+        )
     except Exception:
         return
     tmp_path: Path | None = None

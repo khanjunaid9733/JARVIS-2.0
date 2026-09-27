@@ -139,6 +139,42 @@ def test_directory_cache_recovers_from_a_corrupt_cache_file(tmp_path):
     assert cache_file.stat().st_size > 0
 
 
+def test_directory_cache_is_invalidated_when_the_library_changes(tmp_path):
+    """Regression: the cache was served blindly, so editing, adding or removing a
+    SKILL.md had no effect until the cache file was deleted by hand - a caller
+    (e.g. a mission) would execute a stale skill definition with no warning."""
+    skills_root = tmp_path / "skills"
+    skill_dir = skills_root / "test-skill"
+    skill_dir.mkdir(parents=True)
+    skill_file = skill_dir / "SKILL.md"
+    skill_file.write_text(SAMPLE_MARKDOWN, encoding="utf-8")
+    assert "media-audio-convert" in load_skills_directory(skills_root)
+
+    # 1. an edit is picked up (different description, different size)
+    skill_file.write_text(
+        SAMPLE_MARKDOWN.replace("FLAC, AAC formats", "FLAC, AAC, and OGG formats"),
+        encoding="utf-8",
+    )
+    edited = load_skills_directory(skills_root)
+    assert "OGG" in edited["media-audio-convert"].description
+
+    # 2. an added skill appears
+    added_dir = skills_root / "second-skill"
+    added_dir.mkdir()
+    (added_dir / "SKILL.md").write_text(
+        SAMPLE_MARKDOWN.replace("media-audio-convert", "second-skill"), encoding="utf-8"
+    )
+    assert "second-skill" in load_skills_directory(skills_root)
+
+    # 3. a removed skill disappears
+    (added_dir / "SKILL.md").unlink()
+    assert "second-skill" not in load_skills_directory(skills_root)
+
+    # the cache stays a cache: re-reading it is still valid JSON with metadata
+    cached = json.loads((skills_root / ".skills_cache.json").read_text(encoding="utf-8"))
+    assert cached["__cache_meta__"]["files"]
+
+
 def test_load_skills_directory_deterministic_duplicate_collision_handling(tmp_path, caplog):
     import logging
     skills_root = tmp_path / "skills"

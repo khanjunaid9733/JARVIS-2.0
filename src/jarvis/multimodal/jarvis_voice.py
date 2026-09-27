@@ -32,6 +32,7 @@ from __future__ import annotations
 import asyncio
 import io
 import json
+import logging
 import os
 import re
 import sys
@@ -58,6 +59,8 @@ from .audio_io import (
 from .neural_tts import NeuralTTSEngine, DEFAULT_VOICE, EDGE_VOICES
 from .streaming import StreamingVoiceLoop, VoiceTurnState
 from .skill_creator import SkillCreator, is_skill_creation_intent
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -328,15 +331,42 @@ class LLMEngine:
         self._client: Any = None
         self._resolved_provider: str = ""
         self._resolved_model: str = ""
+        #: Why each candidate provider failed, populated by `_resolve`. Empty
+        #: when a provider resolved or when no credentials were offered.
+        self.resolve_errors: list[str] = []
 
     def _resolve(self) -> None:
-        """Auto-detect the best available LLM provider."""
+        """Auto-detect the best available LLM provider.
+
+        Every provider branch used to end in a bare `except: pass`, so when a
+        provider SDK was missing the whole subsystem degraded to "offline" with
+        no indication of why. On this project that is the *default* state:
+        `openai` and `groq` are imported here but declared in neither
+        `pyproject.toml` nor the lockfile, so every branch raised
+        `ModuleNotFoundError` and was swallowed. The result was a silently dead
+        AI subsystem: callers got an "offline" engine and a rule-based fallback
+        that answers natural language by guessing, with nothing in the logs.
+
+        Failures are now collected into `resolve_errors` and warned about. The
+        reason is a diagnostic, not a behavior change: resolution still ends at
+        "offline" when no provider can be constructed.
+        """
         if self._client is not None:
             return
 
+        self.resolve_errors = []
         groq_key = os.environ.get("GROQ_API_KEY", "")
         openai_key = os.environ.get("OPENAI_API_KEY", "")
         gemini_key = os.environ.get("GEMINI_API_KEY", "")
+
+        def _fail(provider: str, exc: BaseException) -> None:
+            self.resolve_errors.append(f"{provider}: {type(exc).__name__}: {exc}")
+            logger.warning(
+                "LLM provider %s unavailable (%s: %s)",
+                provider,
+                type(exc).__name__,
+                exc,
+            )
 
         # Try Gemini first if auto and GEMINI_API_KEY is available (verified working)
         if self.provider == "gemini" or (self.provider == "auto" and gemini_key):
@@ -347,10 +377,10 @@ class LLMEngine:
                     base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
                 )
                 self._resolved_provider = "gemini"
-                self._resolved_model = self.model or "gemini-2.5-flash"
+                self._resolved_model = self.model or os.environ.get("JARVIS_MODEL_NAME") or "gemini-flash-lite-latest"
                 return
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail("gemini", exc)
 
         if self.provider == "groq" or (self.provider == "auto" and groq_key):
             try:
@@ -361,8 +391,8 @@ class LLMEngine:
                     self._resolved_provider = "groq"
                     self._resolved_model = self.model or "llama-3.3-70b-versatile"
                     return
-            except ImportError:
-                pass
+            except Exception as exc:
+                _fail("groq", exc)
 
         if self.provider == "openai" or self.provider == "auto":
             try:
@@ -376,8 +406,8 @@ class LLMEngine:
                     self._resolved_provider = "openai"
                     self._resolved_model = self.model or "gpt-4o-mini"
                     return
-            except ImportError:
-                pass
+            except Exception as exc:
+                _fail("openai", exc)
 
         # Use the JARVIS env vars as fallback
         if self.api_key and self.base_url:
@@ -387,8 +417,16 @@ class LLMEngine:
                 self._resolved_provider = "openai-compatible"
                 self._resolved_model = self.model or os.environ.get("JARVIS_MODEL_NAME", "gpt-4o-mini")
                 return
-            except ImportError:
-                pass
+            except Exception as exc:
+                _fail("openai-compatible", exc)
+
+        if gemini_key or openai_key or groq_key:
+            logger.warning(
+                "No LLM provider could be constructed although an API key is "
+                "present. The engine is OFFLINE; callers will fall back to "
+                "rule-based behavior. Causes: %s",
+                "; ".join(self.resolve_errors) or "no provider matched",
+            )
 
         self._resolved_provider = "offline"
         self._resolved_model = "none"

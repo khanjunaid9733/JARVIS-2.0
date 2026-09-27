@@ -61,6 +61,22 @@ def is_installed() -> bool:
     return target_vbs.exists()
 
 
+def create_desktop_launcher(port: int = 7777) -> Path:
+    """Create a 1-click silent background launcher on user's Desktop."""
+    desktop_dir = Path.home() / "Desktop"
+    target_vbs = desktop_dir / "JARVIS_Silent_Background.vbs"
+    repo_root = Path(__file__).resolve().parent.parent
+    pythonw = get_pythonw_path()
+
+    vbs_content = f'''Set WshShell = CreateObject("WScript.Shell")
+WshShell.CurrentDirectory = "{repo_root}"
+WshShell.Run """{pythonw}""" & " -c ""import sys; sys.path.insert(0, 'src'); from jarvis.ui.server import run_server; run_server({port})""", 0, False
+WshShell.Popup "JARVIS 2.0 is now active in the background." & vbCrLf & vbCrLf & "- Say 'Hey JARVIS' anywhere" & vbCrLf & "- Press Alt+J to summon holographic HUD", 4, "JARVIS 2.0 Resident", 64
+'''
+    target_vbs.write_text(vbs_content, encoding="utf-8")
+    return target_vbs
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--uninstall":
         removed = uninstall_startup()
@@ -70,3 +86,6 @@ if __name__ == "__main__":
     else:
         installed_path = install_startup()
         print(f"JARVIS 2.0 Resident launcher successfully installed at: {installed_path}")
+        desktop_path = create_desktop_launcher()
+        print(f"JARVIS 2.0 Desktop launcher created at: {desktop_path}")
+

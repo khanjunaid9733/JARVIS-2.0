@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import pytest
 
+from jarvis.skills.admission import SkillAdmissionPolicy
 from jarvis.skills.composer import PipelineStep, SkillPipelineComposer
 from jarvis.skills.dispatcher import SkillDispatcher
 from jarvis.skills.manifest import parse_skill_markdown
@@ -40,7 +41,11 @@ print("RECEIVED_{last_output}")
     reg.register(s1)
     reg.register(s2)
 
-    dispatcher = SkillDispatcher()
+    dispatcher = SkillDispatcher(
+        admission=SkillAdmissionPolicy(
+            entries=frozenset({"text-producer", "text-consumer"})
+        )
+    )
     composer = SkillPipelineComposer(reg, dispatcher)
 
     steps = [

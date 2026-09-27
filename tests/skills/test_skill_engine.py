@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from jarvis.skills.admission import SkillAdmissionPolicy
 from jarvis.skills.context import SkillExecutionContext
 from jarvis.skills.dispatcher import SkillDispatcher
 from jarvis.skills.engine import SkillGoalResult, SkillRuntimeEngine
@@ -13,6 +14,11 @@ from jarvis.skills.manifest import (
     parse_skill_markdown,
 )
 from jarvis.skills.registry import SkillRegistry
+
+
+def _admit(*skill_ids: str) -> SkillAdmissionPolicy:
+    """Execution is default-deny (ADR-011 S4); these tests state what they run."""
+    return SkillAdmissionPolicy(entries=frozenset(skill_ids))
 
 
 def _make_mock_skill(
@@ -76,7 +82,7 @@ def test_engine_unhealthy_skill_is_refused(tmp_path: Path):
     )
     reg.register(unhealthy_skill)
 
-    engine = SkillRuntimeEngine(registry=reg)
+    engine = SkillRuntimeEngine(registry=reg, admission=_admit("cloud-deploy-k8s"))
     ctx = SkillExecutionContext(workspace=tmp_path, dry_run=False)
 
     res = engine.execute_goal("cloud-deploy-k8s", ctx)
@@ -92,7 +98,7 @@ def test_engine_dry_run_execution(tmp_path: Path):
     skill = _make_mock_skill("cloud-deploy-k8s", binaries=["nonexistent_bin"])
     reg.register(skill)
 
-    engine = SkillRuntimeEngine(registry=reg)
+    engine = SkillRuntimeEngine(registry=reg, admission=_admit("cloud-deploy-k8s"))
     ctx = SkillExecutionContext(workspace=tmp_path, dry_run=True)
 
     res = engine.execute_goal("cloud-deploy-k8s", ctx)
@@ -107,7 +113,7 @@ def test_engine_successful_execution(tmp_path: Path):
     skill = _make_mock_skill("media-audio-verify", code="print('AUDIO_SUCCESS')")
     reg.register(skill)
 
-    engine = SkillRuntimeEngine(registry=reg)
+    engine = SkillRuntimeEngine(registry=reg, admission=_admit("media-audio-verify"))
     ctx = SkillExecutionContext(workspace=tmp_path)
 
     res = engine.execute_goal("media-audio-verify", ctx)

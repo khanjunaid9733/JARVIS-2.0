@@ -58,8 +58,9 @@ htmlcov/
 *.swp
 *.swo
 
-# Generated skill index cache (rebuilt on demand; never commit)
+# Generated skill index caches (rebuilt on demand; never commit)
 .agents/skills/.skills_cache.json
+.agents/skills/.skills_registry.pkl
 
 # OS specific
 Thumbs.db

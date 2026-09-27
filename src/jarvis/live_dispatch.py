@@ -56,6 +56,20 @@ from .supervisor import (
     VerificationResult,
 )
 
+from .live_steps import (  # the step/artifact contract's owner, re-exported
+    ARTIFACT_DIRNAME,
+    ATTEST_STEP,
+    CAPABILITY_QUERIES,
+    DELIVER_STEP,
+    PLAN_STEP,
+    WORK_ORDER_DIRNAME,
+    MissionStepLike,
+    goal_digest,
+    step_capability,
+    step_expectations,
+    step_payload,
+)
+
 #: Which binary each provider identity actually spawns (one place, so a
 #: provider can never be reported as an engine it does not run).
 BRIDGE_BINARIES: Mapping[str, str] = {
@@ -129,97 +143,17 @@ class StepRecord:
 
 
 # ---------------------------------------------------------------------------
-# the declared artifact contract (shared by worker, payload and verifier)
+# the declared artifact contract
 # ---------------------------------------------------------------------------
 
-PLAN_STEP = "plan"
-DELIVER_STEP = "deliver"
-ATTEST_STEP = "attest"
-
-
-def goal_digest(goal: str) -> str:
-    import hashlib
-
-    return hashlib.sha256(goal.encode("utf-8")).hexdigest()
-
-
-def step_payload(
-    step: MissionStepLike,  # noqa: F821 - see alias below
-    *,
-    mission_id: str,
-    goal: str,
-    step_ids: Sequence[str],
-    attempt: int,
-    carried: str,
-    deliverable_digest: str,
-    base_dir: str = "artifacts",
-    order_dir: str = "work_orders",
-) -> tuple[str, str]:
-    """The step's declared artifact path and exact bytes."""
-    if step.id == PLAN_STEP:
-        relative = f"{order_dir}/{mission_id}.json"
-        body: dict[str, Any] = {
-            "mission_id": mission_id,
-            "goal": goal,
-            "goal_sha256": goal_digest(goal),
-            "attempt": attempt,
-            "steps": list(step_ids),
-        }
-    elif step.id == ATTEST_STEP:
-        deliverable = f"{base_dir}/{mission_id}.json"
-        relative = f"{deliverable}.sha256"
-        body = {
-            "deliverable": deliverable,
-            "sha256": deliverable_digest,
-            "mission_id": mission_id,
-            "attempt": attempt,
-        }
-    else:
-        relative = f"{base_dir}/{mission_id}.json"
-        body = {
-            "mission_id": mission_id,
-            "step": step.id,
-            "goal": goal,
-            "goal_sha256": goal_digest(goal),
-            "attempt": attempt,
-            "recovered": attempt > 1,
-            "recovery_context": carried,
-        }
-    return relative, json.dumps(body, sort_keys=True, indent=2) + "\n"
-
-
-def step_expectations(
-    step_id: str,
-    *,
-    mission_id: str,
-    goal: str,
-    step_ids: Sequence[str],
-    deliverable: str,
-    base_dir: str = "artifacts",
-    order_dir: str = "work_orders",
-) -> dict[str, Any]:
-    """What the independent verifier must find for this step, as pure data."""
-    if step_id == PLAN_STEP:
-        return {
-            "kind": PLAN_STEP,
-            "mission_id": mission_id,
-            "goal": goal,
-            "steps": len(step_ids),
-            "path": f"{order_dir}/{mission_id}.json",
-        }
-    if step_id == ATTEST_STEP:
-        return {
-            "kind": ATTEST_STEP,
-            "mission_id": mission_id,
-            "deliverable": deliverable,
-            "path": f"{deliverable}.sha256",
-        }
-    return {
-        "kind": DELIVER_STEP,
-        "mission_id": mission_id,
-        "goal_sha256": goal_digest(goal),
-        "path": f"{base_dir}/{mission_id}.json",
-    }
+# Which steps a mission has, the artifact and datum each one declares, what the
+# verifier must find for it and which capability its work needs are all ONE
+# contract, and that contract lives in `jarvis.live_steps` (`step_payload`,
+# `step_expectations`, `step_capability`, the step ids and the layout constants).
+# They are re-exported here because this module's callers historically imported
+# them from the dispatch seam - never redefined, so the two paths cannot drift.
+# What genuinely belongs to this module is the WORKER side of that contract:
+# `VERIFIER_PROGRAM`, `_VERIFIER_REFUSALS`, and the workers/verifier below.
 
 
 #: The independent check, run as a FRESH process by `IndependentVerifier`.
@@ -251,13 +185,20 @@ if exp.get("mission_id") and body.get("mission_id") != exp["mission_id"]:
     print("MISMATCH: artifact belongs to another mission")
     sys.exit(5)
 
+# The mission's intent bytes are recomputed HERE, in this separate process,
+# rather than trusted from the payload that carried them.
+goal_sha256 = hashlib.sha256(str(exp.get("goal", "")).encode("utf-8")).hexdigest()
+
 kind = exp["kind"]
 if kind == "plan":
     if body.get("goal") != exp["goal"] or len(body.get("steps") or []) != exp["steps"]:
         print("MISMATCH: work order goal/steps")
         sys.exit(6)
+    if body.get("goal_sha256") != goal_sha256:
+        print("MISMATCH: work order goal digest")
+        sys.exit(10)
 elif kind == "deliver":
-    if body.get("goal_sha256") != exp["goal_sha256"]:
+    if body.get("goal_sha256") != goal_sha256:
         print("MISMATCH: deliverable goal digest")
         sys.exit(7)
 elif kind == "attest":
@@ -285,12 +226,8 @@ _VERIFIER_REFUSALS = {
     7: "deliverable does not match the goal",
     8: "attested deliverable missing",
     9: "attestation does not match the deliverable on disk",
+    10: "the work order's goal digest does not match the goal",
 }
-
-
-# `step_payload`/`step_expectations` take a `MissionStep`-shaped object; kept as
-# a string annotation above to avoid importing the orchestrator at module load.
-MissionStepLike = Any
 
 
 # ---------------------------------------------------------------------------
@@ -767,6 +704,7 @@ __all__ = [
     "WorkDatum",
     "goal_digest",
     "select_worker",
+    "step_capability",
     "step_expectations",
     "step_payload",
 ]

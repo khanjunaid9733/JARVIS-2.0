@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from .admission import SkillAdmissionPolicy
 from .context import SkillExecutionContext
 from .dispatcher import SkillDispatcher, SkillExecutionResult
 from .health import HealthStatus, SkillHealthChecker, SkillHealthReport
@@ -44,12 +45,14 @@ class SkillRuntimeEngine:
         dispatcher: SkillDispatcher | None = None,
         health_checker: SkillHealthChecker | None = None,
         event_sink: Any | None = None,
+        admission: SkillAdmissionPolicy | None = None,
     ) -> None:
         self.registry = registry or get_default_registry()
         self.health_checker = health_checker or SkillHealthChecker()
         self.dispatcher = dispatcher or SkillDispatcher(
             health_checker=self.health_checker,
             event_sink=event_sink,
+            admission=admission,
         )
 
     def resolve_skill(

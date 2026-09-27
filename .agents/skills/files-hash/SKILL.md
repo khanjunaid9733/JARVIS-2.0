@@ -16,9 +16,17 @@ Activate when the user asks to:
 
 ## Core Workflows
 
+The digest is the workflow's RESULT, so the snippet prints it: a workflow that
+computes a hash and discards it leaves its caller nothing to verify, which makes
+the skill indistinguishable from one that did nothing.
+
 ```python
-import hashlib; hashlib.sha256(open(path,'rb').read()).hexdigest()
+import hashlib, pathlib; print(hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest())
 ```
+
+## Parameters
+
+- `path` (string, required): the file to hash; the dispatch context binds it as the Python variable `path`
 
 ## Best Practices & Safety Invariants
 - Always verify preconditions before initiating actions.

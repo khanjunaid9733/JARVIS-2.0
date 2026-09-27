@@ -272,4 +272,23 @@ def test_cli_resident_help(home, capsys):
     assert "--status" in captured
 
 
+def test_cli_do_command(home, capsys):
+    code, out = _run(capsys, "do", "cmd: echo HELLO_JARVIS_CMD")
+    assert code == 0
+    assert "Engaging autonomous cognitive agent" in out
+    assert "run_system_command" in out
+    assert "HELLO_JARVIS_CMD" in out
+
+
+def test_cli_opencode_help(home, capsys):
+    with pytest.raises(SystemExit) as exc:
+        _run(capsys, "opencode", "--help")
+    assert exc.value.code == 0
+    captured = capsys.readouterr().out
+    assert "usage: jarvis opencode" in captured
+    assert "--model" in captured
+    assert "--dir" in captured
+
+
+
 

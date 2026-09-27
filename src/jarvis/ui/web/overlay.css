@@ -1,0 +1,691 @@
+/* ==========================================================================
+   JARVIS 2.0 — Transparent Desktop HUD Overlay
+   Everything is transparent. Your desktop is the background.
+   Glassmorphism panels float on top with holographic cyan/emerald accents.
+   ========================================================================== */
+
+/* ---- Design Tokens ---- */
+:root {
+  --hud-glass: rgba(6, 10, 28, 0.72);
+  --hud-glass-hover: rgba(10, 18, 48, 0.82);
+  --hud-glass-solid: rgba(8, 14, 36, 0.88);
+  --hud-border: rgba(0, 229, 255, 0.18);
+  --hud-border-bright: rgba(0, 229, 255, 0.45);
+  --hud-border-glow: rgba(0, 229, 255, 0.6);
+
+  --cyan: #00e5ff;
+  --cyan-bright: #80f2ff;
+  --cyan-dim: rgba(0, 229, 255, 0.2);
+  --emerald: #00ff88;
+  --emerald-dim: rgba(0, 255, 136, 0.2);
+  --amber: #ffb700;
+  --amber-dim: rgba(255, 183, 0, 0.2);
+  --red: #ff0055;
+  --red-dim: rgba(255, 0, 85, 0.2);
+  --purple: #bd00ff;
+
+  --text: #f0f6fc;
+  --text-muted: #8b9bb4;
+  --text-dim: #4d5b75;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Orbitron', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition: all 0.3s var(--ease);
+  --glow-cyan: 0 0 20px rgba(0, 229, 255, 0.3);
+  --glow-emerald: 0 0 20px rgba(0, 255, 136, 0.3);
+}
+
+/* ---- Reset & Transparent Foundation ---- */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent !important;
+  font-family: var(--font-sans);
+  color: var(--text);
+  user-select: none;
+  cursor: default;
+}
+
+.mono { font-family: var(--font-mono); }
+.cyan { color: var(--cyan); }
+.emerald { color: var(--emerald); }
+.amber { color: var(--amber); }
+.red { color: var(--red); }
+
+/* ---- Ambient Particle Canvas ---- */
+#ambient-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.6;
+}
+
+/* ==========================================================================
+   TOP TICKER BAR
+   Thin, transparent bar hugging the top edge of the screen
+   ========================================================================== */
+.hud-ticker {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: var(--hud-glass);
+  backdrop-filter: blur(30px) saturate(1.4);
+  -webkit-backdrop-filter: blur(30px) saturate(1.4);
+  border-bottom: 1px solid var(--hud-border);
+  z-index: 100;
+  animation: slideDown 0.8s var(--ease) both;
+  animation-delay: 0.2s;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.ticker-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ticker-orb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan), 0 0 20px rgba(0, 229, 255, 0.4);
+  animation: orbPulse 2.5s infinite ease-in-out;
+}
+
+@keyframes orbPulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); box-shadow: 0 0 16px var(--cyan), 0 0 30px rgba(0, 229, 255, 0.5); }
+}
+
+.ticker-brand {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: #fff;
+  text-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
+}
+
+.ticker-version {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  padding: 1px 6px;
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  border-radius: 3px;
+  color: var(--cyan-bright);
+  letter-spacing: 1px;
+}
+
+.ticker-center {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ticker-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  color: var(--text-dim);
+}
+
+.stat-value {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stat-bar {
+  width: 38px;
+  height: 4px;
+  background: rgba(0, 229, 255, 0.12);
+  border-radius: 2px;
+  overflow: hidden;
+  display: inline-block;
+  margin-left: 2px;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  background: var(--cyan);
+  box-shadow: 0 0 6px var(--cyan);
+  border-radius: 2px;
+  transition: width 0.5s ease-out;
+}
+
+.ticker-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ticker-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ticker-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.ticker-btn:hover {
+  background: rgba(0, 229, 255, 0.12);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.ticker-btn.wakeword-btn.active {
+  background: rgba(0, 255, 136, 0.18);
+  border-color: var(--emerald);
+  color: var(--emerald);
+  box-shadow: 0 0 12px rgba(0, 255, 136, 0.4);
+  animation: pulseWakeword 2s infinite ease-in-out;
+}
+
+@keyframes pulseWakeword {
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 255, 136, 0.3); }
+  50% { box-shadow: 0 0 18px rgba(0, 255, 136, 0.7); }
+}
+
+.ticker-btn.estop-btn:hover {
+  background: rgba(255, 0, 85, 0.2);
+  border-color: var(--red);
+  color: var(--red);
+  box-shadow: 0 0 20px rgba(255, 0, 85, 0.4);
+}
+
+.ticker-btn.estop-btn.tripped {
+  background: rgba(255, 0, 85, 0.35);
+  border-color: var(--red);
+  color: #fff;
+  animation: estopFlash 1s infinite;
+}
+
+@keyframes estopFlash {
+  0%, 100% { box-shadow: 0 0 10px rgba(255, 0, 85, 0.4); }
+  50% { box-shadow: 0 0 25px rgba(255, 0, 85, 0.8); }
+}
+
+/* ==========================================================================
+   ARC REACTOR — Bottom Right Corner
+   The pulsing holographic heart of JARVIS, always visible
+   ========================================================================== */
+.reactor-anchor {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 200px;
+  height: 200px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  animation: reactorBootUp 1.2s var(--ease) both;
+  animation-delay: 0.5s;
+}
+
+.reactor-anchor.dragging {
+  cursor: grabbing;
+  animation: none !important;
+}
+
+@keyframes reactorBootUp {
+  0% { opacity: 0; transform: scale(0.3) rotate(-180deg); }
+  60% { opacity: 1; transform: scale(1.08) rotate(10deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+#reactor-canvas {
+  width: 200px;
+  height: 200px;
+  filter: drop-shadow(0 0 30px rgba(0, 229, 255, 0.3));
+}
+
+.reactor-label {
+  position: absolute;
+  bottom: -8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.reactor-state {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--cyan);
+  text-shadow: 0 0 10px var(--cyan);
+  transition: color 0.4s, text-shadow 0.4s;
+}
+
+.reactor-sub {
+  font-size: 0.55rem;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.reactor-chat-toggle,
+.reactor-mic-btn {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  z-index: 91;
+}
+
+.reactor-chat-toggle {
+  top: 10px;
+  left: -20px;
+}
+
+.reactor-mic-btn {
+  top: 60px;
+  left: -28px;
+}
+
+.reactor-chat-toggle:hover,
+.reactor-mic-btn:hover {
+  background: rgba(0, 229, 255, 0.15);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+  transform: scale(1.1);
+}
+
+.reactor-mic-btn.listening {
+  background: rgba(0, 255, 136, 0.2);
+  border-color: var(--emerald);
+  color: var(--emerald);
+  box-shadow: var(--glow-emerald);
+  animation: micPulse 1.5s infinite;
+}
+
+@keyframes micPulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(0, 255, 136, 0.3); }
+  50% { box-shadow: 0 0 25px rgba(0, 255, 136, 0.7); transform: scale(1.08); }
+}
+
+/* ==========================================================================
+   CHAT DRAWER — Slides in from the right edge
+   ========================================================================== */
+.chat-drawer {
+  position: fixed;
+  top: 52px;
+  right: 0;
+  width: 380px;
+  bottom: 80px;
+  background: var(--hud-glass-solid);
+  backdrop-filter: blur(30px) saturate(1.4);
+  -webkit-backdrop-filter: blur(30px) saturate(1.4);
+  border-left: 1px solid var(--hud-border);
+  border-bottom: 1px solid var(--hud-border);
+  border-radius: 0 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  z-index: 80;
+  transform: translateX(100%);
+  opacity: 0;
+  transition: transform 0.5s var(--ease), opacity 0.4s var(--ease);
+  pointer-events: none;
+}
+
+.chat-drawer.open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--hud-border);
+}
+
+.drawer-title {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--cyan);
+}
+
+.drawer-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.drawer-close:hover {
+  background: rgba(255, 0, 85, 0.15);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* Chat Messages */
+.drawer-chat-history {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.2) transparent;
+}
+
+.drawer-chat-history::-webkit-scrollbar {
+  width: 4px;
+}
+.drawer-chat-history::-webkit-scrollbar-track {
+  background: transparent;
+}
+.drawer-chat-history::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.2);
+  border-radius: 4px;
+}
+
+.chat-msg {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  animation: msgFadeIn 0.35s var(--ease) both;
+}
+
+@keyframes msgFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.msg-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+
+.jarvis-msg .msg-indicator {
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+}
+
+.user-msg .msg-indicator {
+  background: var(--emerald);
+  box-shadow: 0 0 8px var(--emerald);
+}
+
+.msg-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.msg-sender {
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+}
+
+.msg-text {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.user-msg .msg-text {
+  background: rgba(0, 229, 255, 0.06);
+  border-color: rgba(0, 229, 255, 0.15);
+}
+
+/* Chat Input */
+.drawer-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--hud-border);
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 0 0 0 16px;
+}
+
+.drawer-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 9px 14px;
+  color: #fff;
+  font-size: 0.82rem;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: var(--transition);
+}
+
+.drawer-input::placeholder {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.drawer-input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.2);
+  background: rgba(0, 229, 255, 0.04);
+}
+
+.drawer-send {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--cyan);
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(0, 119, 255, 0.25));
+  color: var(--cyan);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.drawer-send:hover {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.3), rgba(0, 119, 255, 0.45));
+  box-shadow: var(--glow-cyan);
+  transform: scale(1.05);
+}
+
+/* ==========================================================================
+   EVENT SIDEBAR — Left edge, compact floating stream
+   ========================================================================== */
+.event-ticker-sidebar {
+  position: fixed;
+  top: 52px;
+  left: 0;
+  width: 300px;
+  max-height: 45vh;
+  background: var(--hud-glass);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border-right: 1px solid var(--hud-border);
+  border-bottom: 1px solid var(--hud-border);
+  border-radius: 0 0 12px 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 70;
+  animation: slideRight 0.6s var(--ease) both;
+  animation-delay: 0.8s;
+  overflow: hidden;
+}
+
+@keyframes slideRight {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.event-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hud-border);
+}
+
+.event-sidebar-title {
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--cyan);
+}
+
+.event-sidebar-count {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid var(--cyan-dim);
+  border-radius: 4px;
+  color: var(--cyan);
+}
+
+.event-sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.15) transparent;
+}
+
+.event-sidebar-list::-webkit-scrollbar { width: 3px; }
+.event-sidebar-list::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, 0.15); border-radius: 3px; }
+
+.event-row {
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 2px solid var(--cyan);
+  border-radius: 0 4px 4px 0;
+  transition: background 0.2s;
+  animation: msgFadeIn 0.3s var(--ease) both;
+}
+
+.event-row:hover {
+  background: rgba(0, 229, 255, 0.06);
+}
+
+.event-row.stream-skill { border-left-color: var(--emerald); }
+.event-row.stream-safety { border-left-color: var(--red); }
+.event-row.stream-memory { border-left-color: var(--amber); }
+.event-row.stream-ui { border-left-color: var(--purple); }
+
+.event-type {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 0.63rem;
+}
+
+.event-meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-dim);
+  font-size: 0.55rem;
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   REACTOR STATUS COLOR MODES
+   ========================================================================== */
+body.status-listening .reactor-state { color: var(--emerald); text-shadow: 0 0 10px var(--emerald); }
+body.status-thinking .reactor-state { color: var(--amber); text-shadow: 0 0 10px var(--amber); }
+body.status-acting .reactor-state { color: var(--cyan-bright); text-shadow: 0 0 14px var(--cyan); }
+body.status-emergency_stopped .reactor-state { color: var(--red); text-shadow: 0 0 14px var(--red); }
+body.status-blinded .reactor-state { color: #778899; text-shadow: 0 0 8px #778899; }
+
+body.status-listening .ticker-orb { background: var(--emerald); box-shadow: 0 0 10px var(--emerald); }
+body.status-thinking .ticker-orb { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+body.status-acting .ticker-orb { background: var(--cyan-bright); box-shadow: 0 0 12px var(--cyan); }
+body.status-emergency_stopped .ticker-orb { background: var(--red); box-shadow: 0 0 12px var(--red); animation: estopFlash 0.8s infinite; }
+
+/* ==========================================================================
+   RESPONSIVENESS — Collapse elements on narrow views
+   ========================================================================== */
+@media (max-width: 900px) {
+  .event-ticker-sidebar { display: none; }
+  .chat-drawer { width: 100%; border-radius: 0; }
+}

@@ -193,6 +193,37 @@ class EventLog:
         )
         return int(cur.fetchone()["nxt"])
 
+    def audit(
+        self,
+        *,
+        stream_id: str,
+        event_type: str,
+        principal_id: str,
+        payload: Mapping[str, Any] | None = None,
+        mission_id: str | None = None,
+    ) -> str:
+        """Append one audit event built from keywords. Returns the event id.
+
+        `append` takes a single `Event` (or mapping); calling it as
+        `append(stream_id=..., event_type=...)` raises `TypeError`. Ten call
+        sites did exactly that and wrapped the call in `except Exception: pass`,
+        so every audit event they meant to write was silently discarded. Use
+        this method instead: it constructs the `Event` for you.
+
+        This method deliberately does NOT swallow failures. An audit write that
+        cannot be recorded means the operation it describes is unaccountable,
+        so the caller must fail rather than report success.
+        """
+        return self.append(
+            Event(
+                stream_id=stream_id,
+                event_type=event_type,
+                principal_id=principal_id,
+                mission_id=mission_id,
+                payload=dict(payload or {}),
+            )
+        )
+
     def append(self, event: Event | Mapping[str, Any]) -> str:
         """Append one event. Returns the ULID event id."""
         if not isinstance(event, Event):

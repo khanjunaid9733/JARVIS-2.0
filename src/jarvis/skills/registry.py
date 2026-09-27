@@ -11,7 +11,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 from .manifest import SkillManifest, load_skills_directory
 
@@ -36,6 +36,11 @@ def _tokenize(text: str) -> list[str]:
     return [t for t in tokens if len(t) > 1 and t not in stopwords]
 
 
+def _nested_defaultdict_float() -> defaultdict[str, float]:
+    """Module-level factory enabling clean pickle serialization of the inverted index."""
+    return defaultdict(float)
+
+
 class SkillRegistry:
     """In-memory registry and search index for JARVIS skills."""
 
@@ -43,7 +48,7 @@ class SkillRegistry:
         self._skills: dict[str, SkillManifest] = {}
         self._domain_index: dict[str, set[str]] = defaultdict(set)
         # Inverted index: term -> dict[skill_id, weight]
-        self._inverted_index: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+        self._inverted_index: dict[str, dict[str, float]] = defaultdict(_nested_defaultdict_float)
         self._doc_lengths: dict[str, int] = {}
         self._total_doc_len: int = 0
         self._avg_doc_len: float = 1.0
@@ -198,11 +203,68 @@ class SkillRegistry:
         results.sort(key=lambda m: m.score, reverse=True)
         return results[:limit]
 
-    def load_from_directory(self, directory: Path | str) -> int:
+    def to_cache_dict(self) -> dict[str, Any]:
+        """Export internal index state for high-performance binary caching."""
+        return {
+            "skills": self._skills,
+            "domain_index": {k: set(v) for k, v in self._domain_index.items()},
+            "inverted_index": {k: dict(v) for k, v in self._inverted_index.items()},
+            "doc_lengths": self._doc_lengths,
+            "total_doc_len": self._total_doc_len,
+            "avg_doc_len": self._avg_doc_len,
+        }
+
+    def load_from_cache_dict(self, state: dict[str, Any]) -> None:
+        """Hydrate internal index state from precomputed cache dict."""
+        self._skills = state.get("skills", {})
+        self._domain_index = defaultdict(set, state.get("domain_index", {}))
+        self._inverted_index = defaultdict(_nested_defaultdict_float, {
+            k: defaultdict(float, v) for k, v in state.get("inverted_index", {}).items()
+        })
+        self._doc_lengths = state.get("doc_lengths", {})
+        self._total_doc_len = state.get("total_doc_len", 0)
+        self._avg_doc_len = state.get("avg_doc_len", 1.0)
+
+    def load_from_directory(self, directory: Path | str, use_cache: bool = True) -> int:
         """Load all skills found in a directory. Returns count of loaded skills."""
-        loaded = load_skills_directory(directory)
+        import os
+        import pickle
+        from .manifest import _source_fingerprint
+
+        root = Path(directory)
+        if not root.is_dir():
+            return 0
+
+        pkl_path = root / ".skills_registry.pkl"
+        if use_cache and pkl_path.is_file():
+            try:
+                fp = _source_fingerprint(root)
+                with open(pkl_path, "rb") as f:
+                    cached = pickle.load(f)
+                if isinstance(cached, dict) and cached.get("fingerprint") == fp:
+                    self.load_from_cache_dict(cached)
+                    return len(self._skills)
+            except Exception:
+                pass
+
+        loaded = load_skills_directory(directory, use_cache=use_cache)
         for skill in loaded.values():
             self.register(skill)
+
+        if use_cache and self._skills:
+            try:
+                fp = _source_fingerprint(root)
+                cache_data = {
+                    "fingerprint": fp,
+                    **self.to_cache_dict(),
+                }
+                tmp_path = root / f".skills_registry.{os.getpid()}.tmp"
+                with open(tmp_path, "wb") as f:
+                    pickle.dump(cache_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+                tmp_path.replace(pkl_path)
+            except Exception:
+                pass
+
         return len(loaded)
 
 
@@ -217,10 +279,13 @@ def get_default_registry() -> SkillRegistry:
 
     registry = SkillRegistry()
 
-    # Search in .agents/skills relative to common roots
+    # Search in .agents/skills relative to common roots. The second entry used to
+    # be an absolute path from one developer's drive; a caller that now depends on
+    # the fabric (the mission loop) must find the library on any checkout, so the
+    # path is derived from this package's own location instead.
     search_paths = [
         Path(".agents/skills"),
-        Path("f:/JARVIS2.0/.agents/skills"),
+        Path(__file__).resolve().parents[3] / ".agents" / "skills",
         Path.cwd() / ".agents" / "skills",
     ]
 

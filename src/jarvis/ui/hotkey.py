@@ -26,37 +26,200 @@ WM_HOTKEY = 0x0312
 HOTKEY_ID = 0x7777
 
 
+def _find_window_by_title(title_substring: str) -> Optional[int]:
+    """Find a top-level window whose title contains title_substring."""
+    if sys.platform != "win32":
+        return None
+    try:
+        user32 = ctypes.windll.user32
+        EnumWindowsProc = ctypes.WINFUNCTYPE(
+            ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM
+        )
+        found: list[int] = []
+
+        def _enum(hwnd: ctypes.wintypes.HWND, _lParam: ctypes.wintypes.LPARAM) -> bool:
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length > 0:
+                buf = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(hwnd, buf, length + 1)
+                if title_substring.lower() in buf.value.lower():
+                    found.append(hwnd)
+            return True
+
+        user32.EnumWindows(EnumWindowsProc(_enum), 0)
+        return found[0] if found else None
+    except Exception:
+        return None
+
+
 def launch_or_focus_hud(port: int = 7777) -> None:
-    """Launch or bring the JARVIS HUD to the foreground in chromeless app mode."""
-    url = f"http://127.0.0.1:{port}"
+    """Launch or bring the JARVIS HUD to the foreground and trigger voice wake.
+
+    If the HUD overlay window is already open:
+    1. Restores and brings it to foreground (SetForegroundWindow + SetWindowPos HWND_TOPMOST).
+    2. Sends POST /api/wake to immediately engage voice listening.
+
+    If not yet open:
+    Launches the transparent desktop HUD overlay.
+    """
     if sys.platform != "win32":
         return
 
-    # Attempt msedge app mode first, then chrome, then fallback to explorer/start
-    try:
-        # Edge App mode
-        edge_path = os.path.expandvars(
-            r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
-        )
-        if not os.path.exists(edge_path):
-            edge_path = os.path.expandvars(
-                r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
+    hwnd = _find_window_by_title("J.A.R.V.I.S.")
+    if hwnd:
+        try:
+            user32 = ctypes.windll.user32
+            HWND_TOPMOST = ctypes.wintypes.HWND(-1)
+            SWP_NOMOVE = 0x0002
+            SWP_NOSIZE = 0x0001
+            SWP_SHOWWINDOW = 0x0040
+            SW_RESTORE = 9
+
+            user32.ShowWindow(hwnd, SW_RESTORE)
+            user32.SetForegroundWindow(hwnd)
+            user32.SetWindowPos(
+                hwnd,
+                HWND_TOPMOST,
+                0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
             )
+        except Exception:
+            pass
 
-        if os.path.exists(edge_path):
-            subprocess.Popen([edge_path, f"--app={url}", "--window-size=1280,840"])
+        # Trigger acoustic / voice listening on HUD
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/api/wake",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            urllib.request.urlopen(req, timeout=0.8)
+        except Exception:
+            pass
+        return
+
+    # Window not running — launch fresh overlay
+    launch_transparent_hud(port=port)
+
+
+def launch_transparent_hud(port: int = 7777) -> None:
+    """Launch the JARVIS overlay in a transparent, always-on-top chromeless window.
+
+    Uses Edge or Chrome in --app mode with the overlay URL, then pins the window
+    as always-on-top using Win32 SetWindowPos(HWND_TOPMOST). The transparent
+    background is achieved via the overlay CSS (background: transparent).
+    """
+    url = f"http://127.0.0.1:{port}/overlay"
+    if sys.platform != "win32":
+        return
+
+    try:
+        # Find Edge or Chrome
+        browser_path: Optional[str] = None
+        for candidate in [
+            os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+            os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
+            os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+        ]:
+            if os.path.exists(candidate):
+                browser_path = candidate
+                break
+
+        if not browser_path:
+            os.system(f'start "" "{url}"')
             return
 
-        # Chrome App mode fallback
-        chrome_path = os.path.expandvars(
-            r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"
+        profile_dir = os.path.expandvars(r"%LocalAppData%\JARVIS\overlay_browser_data")
+        try:
+            os.makedirs(profile_dir, exist_ok=True)
+        except Exception:
+            pass
+
+        # Launch in app mode — chromeless, dedicated profile so it always spawns
+        subprocess.Popen([
+            browser_path,
+            f"--app={url}",
+            f"--user-data-dir={profile_dir}",
+            "--window-size=1920,1080",
+            "--window-position=0,0",
+            "--disable-features=TranslateUI",
+            "--disable-infobars",
+            "--hide-crash-restore-bubble",
+        ])
+
+        # Give the window time to spawn, then pin it always-on-top
+        _pin_thread = threading.Thread(
+            target=_find_and_pin_topmost,
+            args=("J.A.R.V.I.S.",),
+            daemon=True,
         )
-        if os.path.exists(chrome_path):
-            subprocess.Popen([chrome_path, f"--app={url}", "--window-size=1280,840"])
-            return
+        _pin_thread.start()
 
-        # Generic system URL open
-        os.system(f'start "" "{url}"')
+    except Exception:
+        import webbrowser
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+
+
+def _find_and_pin_topmost(title_substring: str, max_wait_seconds: int = 10) -> None:
+    """Search for a window containing the title substring and pin it as always-on-top.
+
+    Uses Win32 EnumWindows + SetWindowPos(HWND_TOPMOST) via ctypes.
+    """
+    import time
+
+    if sys.platform != "win32":
+        return
+
+    try:
+        user32 = ctypes.windll.user32
+
+        # Win32 constants
+        HWND_TOPMOST = ctypes.wintypes.HWND(-1)
+        SWP_NOMOVE = 0x0002
+        SWP_NOSIZE = 0x0001
+        SWP_SHOWWINDOW = 0x0040
+
+        EnumWindowsProc = ctypes.WINFUNCTYPE(
+            ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM
+        )
+
+        target_hwnd: Optional[ctypes.wintypes.HWND] = None
+        deadline = time.monotonic() + max_wait_seconds
+
+        while time.monotonic() < deadline:
+            found_handles: list[int] = []
+
+            def _enum_callback(hwnd: ctypes.wintypes.HWND, _lParam: ctypes.wintypes.LPARAM) -> bool:
+                length = user32.GetWindowTextLengthW(hwnd)
+                if length > 0:
+                    buf = ctypes.create_unicode_buffer(length + 1)
+                    user32.GetWindowTextW(hwnd, buf, length + 1)
+                    if title_substring.lower() in buf.value.lower():
+                        found_handles.append(hwnd)
+                return True  # Continue enumeration
+
+            user32.EnumWindows(EnumWindowsProc(_enum_callback), 0)
+
+            if found_handles:
+                target_hwnd = found_handles[0]
+                break
+
+            time.sleep(0.5)
+
+        if target_hwnd is not None:
+            # Pin as always-on-top
+            user32.SetWindowPos(
+                target_hwnd,
+                HWND_TOPMOST,
+                0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+            )
     except Exception:
         pass
 

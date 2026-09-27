@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>J.A.R.V.I.S. — Desktop HUD</title>
+  <meta name="description" content="JARVIS 2.0 Transparent Desktop HUD Overlay">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="overlay.css">
+</head>
+<body>
+  <!-- ============================================================
+       JARVIS 2.0 — Transparent Desktop HUD Overlay
+       Designed to float ON TOP of the Windows desktop.
+       Background is fully transparent — you see your desktop through it.
+       ============================================================ -->
+
+  <!-- Top Edge: Telemetry Ticker Bar -->
+  <header class="hud-ticker" id="hud-ticker">
+    <div class="ticker-left">
+      <div class="ticker-orb" id="system-orb"></div>
+      <span class="ticker-brand">J.A.R.V.I.S.</span>
+      <span class="ticker-version">2.0</span>
+    </div>
+    <div class="ticker-center">
+      <div class="ticker-stat">
+        <span class="stat-label">NODE</span>
+        <span class="stat-value" id="node-id">WORKSTATION_PRIMARY</span>
+      </div>
+      <div class="ticker-divider"></div>
+      <div class="ticker-stat">
+        <span class="stat-label">UPTIME</span>
+        <span class="stat-value mono" id="uptime-ticker">00:00:00</span>
+      </div>
+      <div class="ticker-divider"></div>
+      <div class="ticker-stat">
+        <span class="stat-label">CPU</span>
+        <span class="stat-value mono cyan" id="cpu-stat">0%</span>
+        <div class="stat-bar"><div class="stat-bar-fill" id="cpu-bar" style="width: 0%"></div></div>
+      </div>
+      <div class="ticker-divider"></div>
+      <div class="ticker-stat">
+        <span class="stat-label">RAM</span>
+        <span class="stat-value mono cyan" id="ram-stat">0%</span>
+        <div class="stat-bar"><div class="stat-bar-fill" id="ram-bar" style="width: 0%"></div></div>
+      </div>
+      <div class="ticker-divider"></div>
+      <div class="ticker-stat">
+        <span class="stat-label">EVENTS</span>
+        <span class="stat-value mono cyan" id="event-depth">0</span>
+      </div>
+      <div class="ticker-divider"></div>
+      <div class="ticker-stat">
+        <span class="stat-label">STATUS</span>
+        <span class="stat-value" id="companion-status">IDLE</span>
+      </div>
+    </div>
+    <div class="ticker-right">
+      <button class="ticker-btn wakeword-btn active" id="btn-wakeword" title="Toggle Acoustic Wake-Word ('Hey JARVIS')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+      <button class="ticker-btn shutter-btn" id="btn-shutter" title="Privacy Shutter">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="ticker-btn estop-btn" id="btn-estop" title="Emergency Stop">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Bottom-Right: Arc Reactor Core (Always Visible) -->
+  <div class="reactor-anchor" id="reactor-anchor">
+    <canvas id="reactor-canvas" width="280" height="280"></canvas>
+    <div class="reactor-label" id="reactor-label">
+      <div class="reactor-state" id="reactor-state">ONLINE</div>
+      <div class="reactor-sub" id="reactor-sub">STANDING BY</div>
+    </div>
+    <!-- Expand/Collapse Chat Toggle -->
+    <button class="reactor-chat-toggle" id="btn-toggle-chat" title="Open Chat Console">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </button>
+    <!-- Voice Mic Toggle -->
+    <button class="reactor-mic-btn" id="btn-mic" title="Voice Input">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    </button>
+  </div>
+
+  <!-- Slide-In Chat Drawer (Right Edge) -->
+  <aside class="chat-drawer" id="chat-drawer">
+    <div class="drawer-header">
+      <span class="drawer-title">COMMAND CONSOLE</span>
+      <button class="drawer-close" id="btn-close-chat" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="drawer-chat-history" id="chat-history">
+      <div class="chat-msg jarvis-msg">
+        <div class="msg-indicator"></div>
+        <div class="msg-content">
+          <span class="msg-sender">JARVIS</span>
+          <span class="msg-text">All systems nominal. How may I assist you, sir?</span>
+        </div>
+      </div>
+    </div>
+    <form class="drawer-input-bar" id="chat-form">
+      <input
+        type="text"
+        id="chat-input"
+        class="drawer-input"
+        placeholder="Speak or type a command..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button type="submit" class="drawer-send" id="btn-send">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </form>
+  </aside>
+
+  <!-- Floating Event Stream (Left Edge, Compact) -->
+  <aside class="event-ticker-sidebar" id="event-sidebar">
+    <div class="event-sidebar-header">
+      <span class="event-sidebar-title">EVENT STREAM</span>
+      <span class="event-sidebar-count mono" id="stream-count">0</span>
+    </div>
+    <div class="event-sidebar-list" id="event-stream"></div>
+  </aside>
+
+  <!-- Ambient Particle Layer (transparent, decorative) -->
+  <canvas id="ambient-canvas"></canvas>
+
+  <script src="overlay.js"></script>
+</body>
+</html>

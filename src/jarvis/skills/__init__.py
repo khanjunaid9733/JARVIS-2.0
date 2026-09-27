@@ -8,6 +8,7 @@ health checks, contained execution dispatch, HTN planner bridges, and
 multi-skill pipeline composition.
 """
 
+from .cognitive_agent import AgentTurnResult, CognitiveAgent, ToolExecutionRecord
 from .composer import PipelineResult, PipelineStep, SkillPipelineComposer
 from .context import SkillExecutionContext
 from .dispatcher import SkillDispatcher, SkillExecutionResult
@@ -31,6 +32,8 @@ from .telemetry import (
 )
 
 __all__ = [
+    "AgentTurnResult",
+    "CognitiveAgent",
     "HealthStatus",
     "PipelineResult",
     "PipelineStep",

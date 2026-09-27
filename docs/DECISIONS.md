@@ -238,3 +238,136 @@ These decisions are binding across all platforms and engineering agents. Changes
   - If the creator later prefers the Ollama path, only the adapter and the
     `model.adapter` binding change; the gateway, registry, and intent ABI are
     unaffected.
+
+---
+
+## ADR-011: Governed Skill Execution Seam
+
+* **Status:** `ACCEPTED`
+* **Date:** 2026-09-27
+* **Context:**
+  The skill runtime was built for a library of hand-written skills, then
+  pointed at a 2,400-entry library that is mostly documentation. Five concrete
+  failures, each reproduced by command before anything was changed:
+
+  1. **Audit events never existed.** `EventLog.append` has the signature
+     `append(event: Event | Mapping)`. Ten call sites invoked it as
+     `append(stream_id=..., event_type=..., ...)`, which raises `TypeError`, and
+     each wrapped the call in `except Exception: pass`. `skill.learned`,
+     `automation.created`, `dialogue_turn`, `agent.tool_executed`,
+     `memory_saved`, and the four UI action events were therefore all silently
+     dropped. `jarvis do "learn: …"` reported success and produced a file with
+     no ledger entry.
+  2. **Untagged fences were treated as shell.** `_extract_code_blocks` defaulted
+     an untagged ``` fence to `bash`, and `SkillWorkflowStep.language` defaulted
+     to `"bash"`. `jarvis skill run 3d-games` fed that skill's own Markdown
+     numbered list to `sh` and reported `1.: command not found`, exit 127.
+  3. **Every skill inherited the operator's secrets.** `_run_step` built the
+     child environment with `env = dict(os.environ)`, so any dispatched skill
+     could read `JARVIS_MODEL_API_KEY` and anything else exported in the session.
+  4. **No execution admission.** All 2,400 skills were dispatchable; a natural
+     language goal could resolve to documentation and run it.
+  5. **Containment was misdescribed.** The module docstring claimed "strict path
+     jailing" while the step ran under a bare `subprocess.run` with no
+     process-tree cleanup, so a grandchild survived a timeout. Nothing enforced
+     a filesystem boundary at any point.
+
+* **Decision:**
+  Five stages, each defaulting to deny:
+
+  * **S0 — Audit helper.** `EventLog.audit(*, stream_id, event_type,
+    principal_id, payload, mission_id)` constructs the `Event` and returns its
+    id. All ten kwargs-style call sites converted and all ten
+    `except Exception: pass` blocks removed; those callers now propagate, so an
+    unaccountable operation fails. An AST regression test over `src/jarvis`
+    fails the build if any kwargs-style `.append()` reappears.
+    *Not uniform, deliberately:* the skill dispatcher's per-step `_emit` still
+    catches, because a locked or full log must not make the whole library
+    unusable. That failure was invisible (counted in telemetry, returned on a
+    result field nobody read); it is now logged and printed by `jarvis skill
+    run`, so a missing ledger record is visible rather than silent.
+  * **S1 — Parse-time admission.** An untagged fence parses as `text` and is
+    inert. `EXECUTABLE_LANGUAGES` is the admission set; `SkillWorkflowStep
+    .is_executable` requires both an admitted language and non-empty code.
+    Unknown tags (`rust`, …) are preserved for inspection and never executed.
+    `CACHE_VERSION` is bumped to 2, because the on-disk cache fingerprints only
+    source files: without a bump, v1 caches kept serving the old `bash` typing
+    and `3d-games` still ran prose.
+  * **S2 — Learning is a file write, not a capability.** *(Revised. See
+    "Revision" below.)* `learn_skill` writes `.agents/skills/<id>/SKILL.md` and
+    journals `skill.learned` with the payload's `code_sha256`. It does not
+    require a signed grant, and the result states plainly that the skill is
+    **not executable yet**, naming `jarvis skill admit <id>` as the next step.
+    No grant file, `grant` subcommand, or `CreatorActionType.SKILL_LEARN` remains.
+  * **S3 — Default-deny environment.** `build_skill_env` copies only
+    `INHERITED_ENV_ALLOWLIST` (shell resolution, temp paths, locale) plus proxy
+    prefixes, forces `PYTHONUTF8=1`, and applies `env_overrides` last. Secrets
+    are withheld unless a caller passes one deliberately.
+  * **S4 — Default-deny execution.** `skills/admission.py` holds the allowlist;
+    `SkillDispatcher` refuses any unlisted skill with a journalled
+    `skill.refused` (`refusal_stage: "admission"`) before a subprocess exists.
+    Seeded with the two reviewed, hand-written hashing skills; `jarvis skill
+    admit <id>` and `jarvis skill admitted` manage it. Discovery is unaffected —
+    every skill stays listable, searchable and inspectable. A dry run is exempt,
+    since it creates no subprocess and is how an operator decides what to admit.
+  * **S4b — Content pin.** `jarvis skill admit` records a sha256 of the reviewed
+    `SKILL.md`. That pin is now *enforced*: if the file changes after review,
+    the skill is refused (`refusal_stage: "admission_content_pin"`) before any
+    subprocess. It was previously write-only, which left admission revocable
+    the instant it was granted, since the agent can rewrite any file on disk.
+  * **S5 — Honest containment.** Steps run through the existing
+    `ContainedProcess` seam (kill-on-close Job Object on Windows, process group
+    on POSIX, whole-tree termination on timeout) rather than a bare
+    `subprocess.run`. `CONTAINMENT_BOUNDARY` states plainly that this is process
+    containment and NOT a filesystem, network, or registry jail; the false
+    "strict path jailing" claim is removed.
+
+* **Consequences:**
+  - The skill seam is now default-deny at four independent points: language
+    admission, execution allowlist, environment inheritance, and audit
+    write-through.
+  - `learn_skill` succeeds and is journalled, and its reply says the skill is
+    not executable until admitted. The cost of writing code to disk is paid at
+    the execution allowlist (S4), not at the file write.
+  - Running an unadmitted library skill now fails loudly
+    (`REFUSED: … not on the execution allowlist`) instead of running its
+    documentation. Admitting the ~1,800 library skills that carry real code is
+    a deliberate, reviewable act, not a default.
+  - `ContainedProcess` gained an optional `env` argument, defaulting to `None`
+    (inherit) so every existing caller is unchanged. Skill dispatch is its
+    first consumer to pass an explicit environment.
+  - Not addressed here, still true: the external OpenCode worker produces no
+    artifact on this machine (exit 0, empty output, killed at 200–300s), and
+    `create_automation` writes JSON that `AutonomousScheduler` never reads.
+    Both are recorded rather than claimed fixed.
+  - A filesystem/network jail for skill steps is **not** provided. If that is
+    required, it is a separate decision about an OS-level sandbox, not an
+    extension of the process containment above.
+
+* **Revision (S2, after implementation):** The creator-authority gate on
+  `learn_skill` was **withdrawn as unsound** and replaced. It was verified
+  bypassable, not merely suspected to be:
+
+  - The agent holds `filesystem_operation`, which writes any path. It can create
+    `.agents/skills/<n>/SKILL.md` directly and never reach `learn_skill`.
+  - The agent holds `run_system_command`, so it can shell out to the grant
+    minting command, which signs with the creator key in its own
+    `$JARVIS_HOME`. This was reproduced end to end: a self-minted grant was
+    accepted and the skill was written.
+
+  A signature over a payload the subject can produce at will is not an
+  authorization. The gate's payload binding was real, but its *provenance*
+  claim was false, and the digest ceremony bought nothing the system could
+  enforce. Presenting it as a security control was the error.
+
+  The replacement states the actual power structure: **learning is a file write;
+  the execution allowlist (S4) is the capability boundary.** S4 is evaluated at
+  dispatch against the file, not against how it arrived, so it holds for skills
+  written by `learn_skill`, by `filesystem_operation`, or by hand. This was
+  verified directly — a skill written straight to disk by a tool is refused at
+  execution until admitted.
+
+  What S2 still does: refuses empty code, journals `skill.learned` with the
+  payload digest, and never claims a written skill is runnable. The digest is
+  retained as an audit artifact identifying *what* landed, not as proof of
+  *who* wrote it.

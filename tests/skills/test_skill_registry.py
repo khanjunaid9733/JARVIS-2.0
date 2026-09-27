@@ -115,3 +115,53 @@ def test_registry_unregister_purges_postings():
     assert reg.count() == 0
     assert reg._total_doc_len == 0
 
+
+def test_registry_binary_cache_persistence_and_invalidation(tmp_path):
+    skills_root = tmp_path / "skills"
+    skill_dir = skills_root / "test-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("""---
+name: test-skill
+description: Test skill for caching
+---
+# Test Skill
+## Purpose
+Test skill for caching
+## When to Activate
+- test activation
+""", encoding="utf-8")
+
+    # 1. Cold load: creates .skills_registry.pkl
+    reg1 = SkillRegistry()
+    count1 = reg1.load_from_directory(skills_root)
+    assert count1 == 1
+    assert reg1.contains("test-skill")
+    pkl_file = skills_root / ".skills_registry.pkl"
+    assert pkl_file.is_file()
+
+    # 2. Warm load: restores directly from pickle cache
+    reg2 = SkillRegistry()
+    count2 = reg2.load_from_directory(skills_root)
+    assert count2 == 1
+    assert reg2.contains("test-skill")
+    assert reg2.find("test activation")[0].skill.id == "test-skill"
+
+    # 3. Invalidation: adding a new skill invalidates pickle cache and re-hydrates
+    added_dir = skills_root / "second-skill"
+    added_dir.mkdir()
+    (added_dir / "SKILL.md").write_text("""---
+name: second-skill
+description: Second skill for cache invalidation
+---
+# Second Skill
+## Purpose
+Second skill
+## When to Activate
+- second activation
+""", encoding="utf-8")
+
+    reg3 = SkillRegistry()
+    count3 = reg3.load_from_directory(skills_root)
+    assert count3 == 2
+    assert reg3.contains("second-skill")
+

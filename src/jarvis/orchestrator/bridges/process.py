@@ -31,7 +31,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 WINDOWS = sys.platform == "win32"
 
@@ -194,9 +194,19 @@ def _taskkill_tree(pid: int | None) -> None:
 class ContainedProcess:
     """One worker process plus the containment that owns its descendants."""
 
-    def __init__(self, cmd: Sequence[str], cwd: Path) -> None:
+    def __init__(
+        self,
+        cmd: Sequence[str],
+        cwd: Path,
+        env: Mapping[str, str] | None = None,
+    ) -> None:
         self.cmd = list(cmd)
         self.cwd = Path(cwd)
+        # ADR-011 S5: an explicit environment for the child. `None` keeps the
+        # inherited `os.environ` behavior every existing caller relies on; a
+        # mapping REPLACES it, which is how the skill dispatcher withholds
+        # secrets (see `jarvis.skills.dispatcher.build_skill_env`).
+        self.env = dict(env) if env is not None else None
         self._proc: subprocess.Popen[str] | None = None
         self._job: _WindowsJob | None = None
         self._lock = threading.Lock()
@@ -224,6 +234,7 @@ class ContainedProcess:
         return subprocess.Popen(
             _resolve_launch_command(self.cmd),
             cwd=str(self.cwd),
+            env=self.env,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

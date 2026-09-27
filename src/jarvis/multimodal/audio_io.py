@@ -20,11 +20,14 @@ from __future__ import annotations
 
 import io
 import struct
+import sys
 import threading
 import time
 import wave
+from array import array
 from collections import deque
 from dataclasses import dataclass, field
+from math import fsum, sqrt
 from typing import Any, Callable, Optional, Protocol, Sequence
 
 
@@ -178,13 +181,29 @@ class RealMicrophone:
         self._thread: threading.Thread | None = None
 
     def _compute_rms(self, data: bytes) -> float:
-        """Compute normalized RMS energy of 16-bit PCM samples."""
+        """Compute normalized RMS energy of 16-bit PCM samples.
+
+        Uses `array` rather than numpy: this module is otherwise pure stdlib
+        (`wave`, `struct`, `io`) and numpy is neither declared nor installed,
+        so the previous `np.` calls raised NameError on every capture frame and
+        the VAD energy gate never actually ran.
+        """
         if len(data) < 2:
             return 0.0
-        samples = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768.0
-        if samples.size == 0:
+        # `array('h')` needs a whole number of 2-byte frames.
+        usable = len(data) - (len(data) % 2)
+        if usable < 2:
             return 0.0
-        return float(np.sqrt(np.mean(samples ** 2)))
+        samples = array("h")
+        samples.frombytes(data[:usable])
+        # WAV frames are little-endian; normalize a big-endian host to match.
+        if sys.byteorder == "big":
+            samples.byteswap()
+        count = len(samples)
+        if count == 0:
+            return 0.0
+        sum_squares = fsum(float(s) * s for s in samples)
+        return sqrt(sum_squares / count) / 32768.0
 
     def _capture_loop(self) -> None:
         """Background thread: reads frames from PyAudio and queues them."""

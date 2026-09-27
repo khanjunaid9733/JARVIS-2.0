@@ -22,8 +22,11 @@ Deviations from the §127.1 transcript are disclosed:
 
 import argparse
 import asyncio
+import hashlib
 import os
+import re
 import sys
+from pathlib import Path
 from typing import Sequence
 
 from .bootstrap import CoreService, ensure_service_started, new_pairing_code
@@ -148,19 +151,91 @@ def _build_parser() -> argparse.ArgumentParser:
     skill_auto.add_argument("--param", action="append", default=[], help="parameter KEY=VALUE")
     skill_auto.set_defaults(func=_cmd_skill_auto)
 
+    skill_admit = skill_sub.add_parser(
+        "admit", help="add a skill to the execution allowlist (ADR-011 S4)"
+    )
+    skill_admit.add_argument("skill_id", help="skill identifier to allow execution")
+    skill_admit.add_argument("--note", default="", help="why this skill is safe to run")
+    skill_admit.set_defaults(func=_cmd_skill_admit)
+
+    skill_admitted = skill_sub.add_parser(
+        "admitted", help="list skills currently allowed to execute"
+    )
+    skill_admitted.set_defaults(func=_cmd_skill_admitted)
+
     skill.set_defaults(func=_cmd_skill_default, domain=None, limit=50)
 
     ui = sub.add_parser("ui", help="launch JARVIS holographic arc core & web GUI")
     ui.add_argument("--port", type=int, default=7777, help="port for the GUI server (default: 7777)")
     ui.add_argument("--no-browser", action="store_true", help="do not auto-open browser")
+    ui.add_argument("--overlay", action="store_true", help="launch as transparent desktop HUD overlay (always-on-top)")
+    ui.add_argument("--background", action="store_true", help="run resident background service silently (detached, no terminal window)")
     ui.set_defaults(func=_cmd_ui)
+
+    app = sub.add_parser("app", help="launch JARVIS as a pure native desktop application window (zero browser)")
+    app.add_argument("--port", type=int, default=7777, help="port for the GUI server (default: 7777)")
+    app.add_argument("--web", action="store_true", help="use web browser HUD overlay instead of pure native GUI")
+    app.add_argument("--background", action="store_true", help="run resident background service silently")
+    app.set_defaults(func=_cmd_app)
 
     res = sub.add_parser("resident", help="manage warm background resident daemon and global hotkeys")
     res.add_argument("--port", type=int, default=7777, help="port for the resident server (default: 7777)")
+    res.add_argument("--start", action="store_true", help="start resident background daemon immediately")
+    res.add_argument("--stop", action="store_true", help="stop running resident daemon")
     res.add_argument("--install-startup", action="store_true", help="install silent background daemon into Windows Startup")
     res.add_argument("--uninstall-startup", action="store_true", help="remove background daemon from Windows Startup")
     res.add_argument("--status", action="store_true", help="check if registered in Windows Startup")
     res.set_defaults(func=_cmd_resident)
+
+    do_cmd = sub.add_parser(
+        "do",
+        help="autonomously execute any task using CMD, PowerShell, filesystem & skills",
+    )
+    do_cmd.add_argument("goal", help="task or goal description")
+    do_cmd.add_argument("--max-steps", type=int, default=5, help="maximum tool execution iterations")
+    do_cmd.set_defaults(func=_cmd_do)
+
+    bugscan_cmd = sub.add_parser(
+        "bugscan",
+        help="deterministic bug scan of the JARVIS source tree",
+    )
+    bugscan_cmd.add_argument(
+        "--path", default="src/jarvis", help="package or directory to scan"
+    )
+    bugscan_cmd.add_argument(
+        "--rule", action="append", dest="rules",
+        help="limit to a rule (repeatable)",
+    )
+    bugscan_cmd.add_argument(
+        "--severity", action="append", dest="severities",
+        help="limit to a severity: critical/high/medium/low (repeatable)",
+    )
+    bugscan_cmd.add_argument("--json", action="store_true", help="machine-readable output")
+    bugscan_cmd.add_argument(
+        "--fail-on", default="critical",
+        help="exit non-zero if any finding is this severe or worse (default: critical)",
+    )
+    bugscan_cmd.set_defaults(func=_cmd_bugscan)
+
+    bugfix_cmd = sub.add_parser(
+        "bugfix",
+        help="AI triage of one bugscan finding; patches require explicit --yes",
+    )
+    bugfix_cmd.add_argument("finding_id", help="finding id from `jarvis bugscan`")
+    bugfix_cmd.add_argument(
+        "--yes", action="store_true",
+        help="actually write the patch (default is a dry run showing the diff)",
+    )
+    bugfix_cmd.set_defaults(func=_cmd_bugfix)
+
+    opencode_cmd = sub.add_parser(
+        "opencode",
+        help="dispatch software engineering prompt directly to OpenCode (Big Pickle)",
+    )
+    opencode_cmd.add_argument("prompt", help="prompt or coding task for OpenCode")
+    opencode_cmd.add_argument("--model", "-m", default="opencode/big-pickle", help="model string (default: opencode/big-pickle)")
+    opencode_cmd.add_argument("--dir", "-d", default=None, help="working directory")
+    opencode_cmd.set_defaults(func=_cmd_opencode)
 
     # bare `jarvis` = restart/recovery summary (§127.1)
     parser.set_defaults(func=_cmd_status)
@@ -173,9 +248,45 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _cmd_ui(service: CoreService, args: argparse.Namespace) -> int:
     import webbrowser
-    from .ui.server import run_server
 
     port = getattr(args, "port", 7777)
+
+    if getattr(args, "background", False):
+        import subprocess
+        from pathlib import Path
+        import sys
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        pythonw = Path(sys.executable).parent / "pythonw.exe"
+        if not pythonw.is_file():
+            pythonw = Path(sys.executable)
+
+        target_func = "run_overlay" if getattr(args, "overlay", False) else "run_server"
+        cmd = [
+            str(pythonw),
+            "-c",
+            f"import sys; sys.path.insert(0, 'src'); from jarvis.ui.server import {target_func}; {target_func}({port})",
+        ]
+        flags = 0
+        if sys.platform == "win32":
+            flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        subprocess.Popen(cmd, cwd=str(repo_root), creationflags=flags, close_fds=True)
+        print(f"JARVIS 2.0 active in background (port {port}).")
+        print("  - Voice:  Say 'Hey JARVIS' anywhere to wake")
+        print("  - Hotkey: Press Alt+J to summon holographic HUD")
+        print("This terminal can now be safely closed.")
+        return 0
+
+    if getattr(args, "overlay", False):
+        # Launch transparent desktop HUD overlay
+        from .ui.server import run_overlay
+        print(f"Launching JARVIS Desktop HUD Overlay on port {port}...")
+        print("Press Alt+J to summon/focus the HUD window.")
+        print("Hands-free acoustic trigger active: Say 'Hey JARVIS' anywhere.")
+        run_overlay(port=port, service=service)
+        return 0
+
+    # Default: full dashboard in browser
+    from .ui.server import run_server
     url = f"http://127.0.0.1:{port}"
     print(f"Launching JARVIS Holographic Arc Core & GUI on {url}...")
     if not getattr(args, "no_browser", False):
@@ -185,6 +296,24 @@ def _cmd_ui(service: CoreService, args: argparse.Namespace) -> int:
             pass
     run_server(port=port, service=service)
     return 0
+
+
+def _cmd_app(service: CoreService, args: argparse.Namespace) -> int:
+    """Launch JARVIS as a 100% native desktop application window (zero browser)."""
+    port = getattr(args, "port", 7777)
+    use_web = getattr(args, "web", False)
+
+    if use_web:
+        setattr(args, "overlay", True)
+        return _cmd_ui(service, args)
+
+    # Pure Native Windows Desktop Companion (Tkinter Canvas + Arc Reactor)
+    from .ui.desktop_companion import launch_native_companion
+    print(f"Launching JARVIS 2.0 Pure Native Desktop Companion (zero browser)...")
+    print(f"Arc Reactor HUD initialized on desktop.")
+    launch_native_companion(port=port)
+    return 0
+
 
 
 def _cmd_resident(service: CoreService, args: argparse.Namespace) -> int:
@@ -214,6 +343,24 @@ def _cmd_resident(service: CoreService, args: argparse.Namespace) -> int:
         print(f"Windows Startup resident registration removed: {removed}")
         return 0
 
+    if getattr(args, "start", False):
+        import subprocess
+        pythonw = Path(sys.executable).parent / "pythonw.exe"
+        if not pythonw.is_file():
+            pythonw = Path(sys.executable)
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        cmd = [
+            str(pythonw),
+            "-c",
+            f"import sys; sys.path.insert(0, 'src'); from jarvis.ui.server import run_server; run_server({args.port})",
+        ]
+        flags = 0x00000008 | 0x00000200 if sys.platform == "win32" else 0
+        subprocess.Popen(cmd, cwd=str(repo_root), creationflags=flags, close_fds=True)
+        print(f"JARVIS 2.0 Resident background daemon started on port {args.port}.")
+        print("  - Voice:  Say 'Hey JARVIS' anywhere to wake")
+        print("  - Hotkey: Press Alt+J to summon holographic HUD")
+        return 0
+
     if getattr(args, "status", False):
         installed = install_startup.is_installed() if install_startup else False
         print(f"Windows Startup resident: {'INSTALLED' if installed else 'NOT INSTALLED'}")
@@ -222,9 +369,66 @@ def _cmd_resident(service: CoreService, args: argparse.Namespace) -> int:
     from .ui.server import run_server
     print("Starting JARVIS 2.0 Warm Resident Daemon...")
     print("Global Hotkey: [Alt + J] active (instant HUD summon in <15ms)")
+    print("Hands-free acoustic trigger active: Say 'Hey JARVIS' to wake.")
+
     print(f"Server endpoint: http://127.0.0.1:{args.port}")
     run_server(port=args.port, service=service)
     return 0
+
+
+def _cmd_do(service: CoreService, args: argparse.Namespace) -> int:
+    from .skills.cognitive_agent import CognitiveAgent
+    agent = CognitiveAgent(event_log=service.log)
+    print(f"\n[JARVIS] Engaging autonomous cognitive agent on: {args.goal!r}")
+    res = agent.process_turn(args.goal, source="cli", max_tool_iterations=args.max_steps)
+    if res.tools_executed:
+        print(f"\n--- Actions Executed ({len(res.tools_executed)}) ---")
+        for i, t in enumerate(res.tools_executed, 1):
+            status = "OK" if t.success else "FAILED"
+            print(f"{i}. [{status}] {t.name} ({t.duration_ms:.1f}ms)")
+            if t.args:
+                arg_summary = ", ".join(f"{k}={v!r}" for k, v in t.args.items())
+                if len(arg_summary) > 120:
+                    arg_summary = arg_summary[:117] + "..."
+                print(f"   args: {arg_summary}")
+            if t.name == "run_system_command" and isinstance(t.output, dict):
+                stdout = t.output.get("stdout")
+                if stdout:
+                    lines = stdout.splitlines()
+                    preview = "\n".join(f"     | {line}" for line in lines[:10])
+                    if len(lines) > 10:
+                        preview += f"\n     | ... ({len(lines) - 10} more lines)"
+                    print(f"   stdout:\n{preview}")
+            elif t.name == "filesystem_operation" and isinstance(t.output, dict):
+                if "content" in t.output:
+                    lines = t.output["content"].splitlines()
+                    preview = "\n".join(f"     | {line}" for line in lines[:8])
+                    print(f"   content:\n{preview}")
+                elif "items" in t.output:
+                    items_str = ", ".join(item["name"] for item in t.output["items"][:10])
+                    print(f"   items: {items_str}")
+    print(f"\n[JARVIS Response]\n{res.reply}\n")
+    return 0 if res.success else 1
+
+
+def _cmd_opencode(service: CoreService, args: argparse.Namespace) -> int:
+    import subprocess
+    from pathlib import Path
+    import sys
+    root_dir = Path(__file__).resolve().parent.parent.parent
+    script_path = root_dir / "scripts" / "control_opencode.py"
+    if not script_path.exists():
+        print(f"Error: OpenCode bridge script not found at {script_path}", file=sys.stderr)
+        return 1
+
+    cmd = [sys.executable, str(script_path), "run", "--model", args.model]
+    if args.dir:
+        cmd.extend(["--dir", args.dir])
+    cmd.append(args.prompt)
+
+    print(f"[JARVIS] Dispatching to OpenCode (Big Pickle): {args.prompt!r}")
+    res = subprocess.run(cmd)
+    return res.returncode
 
 
 def _cmd_init(service: CoreService, args: argparse.Namespace) -> int:
@@ -616,6 +820,15 @@ def _cmd_skill_run(service: CoreService, args: argparse.Namespace) -> int:
         print(res.stdout)
     if res.stderr:
         print(res.stderr, file=sys.stderr)
+    # An audit write that failed means this execution is not in the ledger.
+    # Say so, rather than letting "no record" look like "nothing happened".
+    if res.audit_errors:
+        print(
+            f"WARNING: {len(res.audit_errors)} audit event(s) could NOT be written "
+            f"to the ledger; this run is unaccounted for: "
+            f"{'; '.join(res.audit_errors[:3])}",
+            file=sys.stderr,
+        )
     if res.refusal_reason:
         print(f"REFUSED: {res.refusal_reason}", file=sys.stderr)
         return 2
@@ -623,6 +836,169 @@ def _cmd_skill_run(service: CoreService, args: argparse.Namespace) -> int:
         print(f"FAILED: {res.error}", file=sys.stderr)
         return res.exit_code or 1
     print(f"OK ({res.duration_ms:.1f}ms)")
+    return 0
+
+
+def _cmd_bugscan(service: CoreService, args: argparse.Namespace) -> int:
+    """Run the deterministic antibug scan.
+
+    Detection never depends on the LLM: the AI subsystem in this project was
+    silently broken for a long time, and a bug finder that depends on it would
+    have reported a clean bill of health forever.
+    """
+    from .qa.bugscan import SEVERITY_ORDER, scan
+
+    report = scan(
+        args.path,
+        rules=args.rules,
+        severities=args.severities,
+    )
+
+    if args.json:
+        print(report.to_json())
+    else:
+        print(
+            f"Scanned {report.scanned_files} file(s): "
+            f"{len(report.findings)} finding(s) {report.by_severity()}"
+        )
+        by_rule = report.by_rule()
+        if by_rule:
+            print("By rule: " + ", ".join(f"{k}={v}" for k, v in sorted(by_rule.items())))
+        print()
+        for f in report.findings:
+            print(f"[{f.severity.upper():8}] {f.finding_id}")
+            print(f"    {f.file}:{f.line}  {f.rule}")
+            print(f"    {f.message}")
+            if f.snippet:
+                print(f"    > {f.snippet}")
+            print()
+        if report.scanner_errors:
+            print(f"SCANNER ERRORS ({len(report.scanner_errors)}) - a rule failed:")
+            for err in report.scanner_errors[:10]:
+                print(f"    {err}")
+            print()
+
+    threshold = (args.fail_on or "").lower()
+    if threshold and threshold in SEVERITY_ORDER:
+        limit = SEVERITY_ORDER[threshold]
+        if any(SEVERITY_ORDER.get(f.severity, 9) <= limit for f in report.findings):
+            return 1
+    return 0
+
+
+def _cmd_bugfix(service: CoreService, args: argparse.Namespace) -> int:
+    """Triage one finding and, only with --yes, apply a proposed patch."""
+    from .qa.bugscan import scan
+    from .qa.triage import propose_apply, triage_one
+
+    report = scan()
+    target = next(
+        (f for f in report.findings if f.finding_id == args.finding_id), None
+    )
+    if target is None:
+        print(
+            f"No finding with id {args.finding_id!r} in the current scan "
+            f"({len(report.findings)} finding(s)). Re-run `jarvis bugscan` for current ids.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Finding : {target.finding_id}")
+    print(f"Rule    : {target.rule} ({target.severity})")
+    print(f"Location: {target.file}:{target.line}")
+    print(f"Detail  : {target.message}")
+    if target.snippet:
+        print(f"Code    : {target.snippet}")
+    print()
+
+    triaged = triage_one(target)
+    print(f"AI status: {triaged.ai_status}")
+    if triaged.model:
+        print(f"AI model : {triaged.model}")
+    if triaged.explanation:
+        print(f"Analysis : {triaged.explanation}")
+    print()
+
+    if not triaged.patch:
+        print("No patch available. Nothing was changed.")
+        return 0
+
+    applied = propose_apply(target, triaged, dry_run=not args.yes)
+    print(applied.message)
+    if applied.diff:
+        print()
+        print(applied.diff)
+    if applied.backup:
+        print(f"\nBackup written: {applied.backup}")
+    print()
+    print("Re-run the test suite before committing: uv run --frozen pytest -q")
+    return 0 if applied.ok else 1
+
+
+def _cmd_skill_admit(service: CoreService, args: argparse.Namespace) -> int:
+    """Record a reviewed skill on the execution allowlist."""
+    from .skills.admission import (
+        AdmissionEntry,
+        admission_path,
+        load_admission_file,
+        write_admission_file,
+    )
+    from .skills.registry import get_default_registry
+
+    skill_id = args.skill_id.strip()
+    if not skill_id:
+        print("skill_id is required", file=sys.stderr)
+        return 2
+
+    reg = get_default_registry()
+    skill = reg.get(skill_id)
+    if not skill:
+        print(
+            f"Unknown skill: {skill_id!r}. Discovery is separate from admission, "
+            f"so the skill must exist in the library first.",
+            file=sys.stderr,
+        )
+        return 1
+
+    digest = None
+    if skill.source_path and Path(skill.source_path).is_file():
+        digest = hashlib.sha256(
+            Path(skill.source_path).read_bytes()
+        ).hexdigest()
+
+    entries = [
+        e for e in load_admission_file() if e.skill_id != skill_id
+    ]
+    entries.append(AdmissionEntry(skill_id=skill_id, note=args.note, source_sha256=digest))
+    path = write_admission_file(entries)
+
+    print(f"ADMITTED: {skill_id}")
+    if digest:
+        print(f"  pinned sha256: {digest}")
+    if args.note:
+        print(f"  note: {args.note}")
+    print(f"  policy file: {admission_path()}")
+    if not skill.is_runnable:
+        print(
+            f"  note: this skill has no admitted executable steps (ADR-011 S1), "
+            f"so it remains informational even though it is admitted."
+        )
+    return 0
+
+
+def _cmd_skill_admitted(service: CoreService, args: argparse.Namespace) -> int:
+    from .skills.admission import load_policy
+
+    policy = load_policy()
+    ids = policy.admitted_ids()
+    if not ids:
+        print("no skills are admitted for execution")
+        return 0
+    print(f"{len(ids)} skill(s) admitted for execution:")
+    for skill_id in ids:
+        print(f"  - {skill_id}")
+    print("")
+    print("All other library skills remain discoverable and inspectable only.")
     return 0
 
 
